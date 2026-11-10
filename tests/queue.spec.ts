@@ -96,6 +96,15 @@ describe('QueueController', () => {
     expect(played.at(-1)?.title).toBe('First')
   })
 
+  it('can replace the queue at a chosen track', async () => {
+    const { queue, played } = player()
+
+    const snapshot = await queue.replace([FIRST, SECOND], 1)
+
+    expect(snapshot.activeIndex).toBe(1)
+    expect(played.at(-1)?.title).toBe('Second')
+  })
+
   it('does not handle next when nothing is active', async () => {
     const { queue } = player()
     queue.add(FIRST)

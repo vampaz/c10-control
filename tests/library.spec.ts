@@ -146,6 +146,32 @@ describe('LibraryService.artworkUrl', () => {
   })
 })
 
+describe('LibraryService.folderTargets', () => {
+  it('orders the folder and points at the selected track', async () => {
+    const { config, root } = fixture()
+    mkdirSync(join(root, 'album'))
+    writeFileSync(join(root, 'album', '10 Ten.mp3'), 'x')
+    writeFileSync(join(root, 'album', '02 Two.mp3'), 'x')
+    writeFileSync(join(root, 'album', '01 One.flac'), 'x')
+    writeFileSync(join(root, 'album', 'cover.jpg'), 'jpg')
+
+    const folder = await new LibraryService(() => config, 5173).folderTargets('main', 'album/02 Two.mp3')
+
+    expect(folder?.targets.map((target) => target.title)).toEqual(['01 One', '02 Two', '10 Ten'])
+    expect(folder?.index).toBe(1)
+    expect(folder?.targets[1].url).toContain('/api/library/file?library=main&path=album%2F02%20Two.mp3')
+    expect(folder?.targets[1].isLive).toBe(false)
+  })
+
+  it('rejects tracks outside a library', async () => {
+    const { config } = fixture()
+    const service = new LibraryService(() => config, 5173)
+
+    expect(await service.folderTargets('nope', 'a.mp3')).toBeNull()
+    expect(await service.folderTargets('main', '../secret.mp3')).toBeNull()
+  })
+})
+
 describe('parseRange', () => {
   it('parses common byte ranges', () => {
     expect(parseRange('bytes=0-9', 100)).toEqual({ start: 0, end: 9 })

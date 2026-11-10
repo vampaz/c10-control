@@ -60,14 +60,15 @@ export class QueueController {
     return this.snapshot()
   }
 
-  /** Replaces the queue and starts the first track. */
-  async replace(targets: PlayTarget[]): Promise<QueueSnapshot> {
+  /** Replaces the queue and starts playback, by default at the first track. */
+  async replace(targets: PlayTarget[], startIndex = 0): Promise<QueueSnapshot> {
     this.items = targets.map((target) => ({ ...validateTarget(target), id: itemId(target.url) }))
     this.activeIndex = null
     this.started = false
     this.startedAt = 0
     if (this.items.length) {
-      await this.play(0)
+      const index = Number.isInteger(startIndex) ? startIndex : 0
+      await this.play(Math.min(Math.max(0, index), this.items.length - 1))
     }
     return this.snapshot()
   }

@@ -295,6 +295,21 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
         return
       }
 
+      if (pathname === '/api/library/play' && method === 'POST') {
+        const body = await readJsonBody(request)
+        const patch = typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}
+        const folder = await deps.library.folderTargets(
+          String(patch.library ?? ''),
+          String(patch.path ?? ''),
+        )
+        if (!folder) {
+          sendJson(response, 404, { error: 'Track not found' })
+          return
+        }
+        sendJson(response, 200, await deps.queue.replace(folder.targets, folder.index))
+        return
+      }
+
       if (pathname === '/api/folders' && method === 'GET') {
         sendJson(response, 200, await deps.folders.listing(url.searchParams.get('path') ?? ''))
         return

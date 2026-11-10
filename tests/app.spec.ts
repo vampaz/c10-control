@@ -682,6 +682,39 @@ describe('library artwork', () => {
   })
 })
 
+describe('library playback', () => {
+  it('plays the folder that holds the selected file', async () => {
+    const targets = [{ url: 'http://192.168.1.135:8787/api/library/file?library=main&path=album%2Fa.mp3', title: 'A', isLive: false }]
+    const folderTargets = vi.fn(async () => ({ targets, index: 0 }))
+    const replace = vi.fn(async () => ({ items: [], activeIndex: 0 }))
+    const library = { folderTargets } as unknown as LibraryService
+    const queue = { replace } as unknown as QueueController
+
+    const { url } = await start(makeDeps({ library, queue }))
+    const response = await fetch(`${url}/api/library/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ library: 'main', path: 'album/a.mp3' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(folderTargets).toHaveBeenCalledWith('main', 'album/a.mp3')
+    expect(replace).toHaveBeenCalledWith(targets, 0)
+  })
+
+  it('answers 404 when the track is outside a library', async () => {
+    const library = { folderTargets: vi.fn(async () => null) } as unknown as LibraryService
+    const { url } = await start(makeDeps({ library }))
+    const response = await fetch(`${url}/api/library/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ library: 'main', path: '../secret.mp3' }),
+    })
+
+    expect(response.status).toBe(404)
+  })
+})
+
 describe('unknown routes', () => {
   it('answers with 404 JSON', async () => {
     const { url } = await start(makeDeps())

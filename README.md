@@ -86,7 +86,7 @@ Open **Browse → Radio**, search for a station, and press it to play. The star 
 
 ### Local libraries
 
-Add one or more folders in **Speaker settings → Music folders**. In Docker, use **Browse folders** to pick a subfolder of the mounted parent. In **Browse → Library**, pick a folder or search across all of them. Press a track to play it, or press **+** to add it to the queue.
+Add one or more folders in **Speaker settings → Music folders**. In Docker, use **Browse folders** to pick a subfolder of the mounted parent. In **Browse → Library**, pick a folder or search across all of them. Press a track to play it: the rest of its folder queues behind it, so the transport's next and previous buttons move through that folder. Press **+** to add a single track to the queue.
 
 The speaker fetches the file from this app, so the app needs a LAN address the speaker can reach. If local files do not start, set **Media URL** in settings.
 

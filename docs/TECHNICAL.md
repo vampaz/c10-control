@@ -78,7 +78,7 @@ The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs 
 | `server/favorites.ts` | Favorite stations in `.data/favorites.json` |
 | `server/presets.ts` | Six preset slots in `.data/presets.json` |
 | `server/playlists.ts` | Named playlists in `.data/playlists.json` |
-| `server/library.ts` | Multi-folder index, safe path resolution and Range streaming |
+| `server/library.ts` | Multi-folder index, safe path resolution, Range streaming, cover art and folder playback |
 | `server/folders.ts` | Read-only directory listing for the settings folder browser |
 | `server/queue.ts` | App-side queue and auto-advance |
 | `server/sleep.ts` | Sleep timer with fade-out and volume restore |
@@ -162,6 +162,8 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `DELETE` | `/api/sleep` | Cancel the timer |
 | `GET` | `/api/library` | Indexed files with speaker-ready URLs, `?q=&library=&limit=&offset=` |
 | `GET` | `/api/library/file?library=&path=` | Stream a file, with Range support |
+| `GET` | `/api/library/art?library=&path=` | Cover art from the file's tags or its album folder |
+| `POST` | `/api/library/play` | Play `{ library, path }` with the rest of its folder queued |
 | `GET` | `/api/folders?path=` | List directories under the browse roots |
 | `GET` | `/api/playlists` | List playlists |
 | `POST` | `/api/playlists` | Create `{ name }` |

@@ -48,6 +48,14 @@ export async function playStream(target: PlayTarget): Promise<SpeakerState> {
   })
 }
 
+/** Plays a library file with the rest of its folder queued behind it. */
+export function playLibraryFolder(libraryId: string, path: string): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/library/play', {
+    method: 'POST',
+    body: JSON.stringify({ library: libraryId, path }),
+  })
+}
+
 export async function searchRadio(query: string): Promise<RadioStation[]> {
   const result = await request<{ stations: RadioStation[] }>(`/api/radio/search?q=${encodeURIComponent(query)}`)
   return result.stations

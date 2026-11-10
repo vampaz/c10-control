@@ -12,6 +12,7 @@ import {
   fetchPlaylists,
   fetchQueue,
   listFavorites,
+  playLibraryFolder,
   playPlaylist,
   playQueue,
   playStream,
@@ -318,7 +319,15 @@ async function playStation(station: RadioStation): Promise<void> {
 }
 
 async function playLibrary(entry: LibraryEntry): Promise<void> {
-  await play({ url: entry.url, title: entry.name, artworkUrl: null, isLive: false })
+  busyUrl.value = entry.url
+  error.value = null
+  try {
+    queue.value = await playLibraryFolder(entry.libraryId, entry.path)
+  } catch (cause) {
+    error.value = message(cause)
+  } finally {
+    busyUrl.value = null
+  }
 }
 
 async function playCustom(): Promise<void> {

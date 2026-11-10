@@ -7,6 +7,7 @@ const favorites = vi.fn<() => Promise<Favorite[]>>()
 const addFavorite = vi.fn(async (_station: unknown): Promise<Favorite[]> => [])
 const removeFavorite = vi.fn(async (_id: string): Promise<Favorite[]> => [])
 const playStream = vi.fn(async (_target: unknown) => undefined)
+const playLibraryFolder = vi.fn(async (_library: string, _path: string): Promise<QueueSnapshot> => emptyQueue)
 const searchRadio = vi.fn(async (_query: string) => [])
 const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
   libraries: [],
@@ -36,6 +37,7 @@ vi.mock('@/api', () => ({
   addFavorite: (station: unknown) => addFavorite(station),
   removeFavorite: (id: string) => removeFavorite(id),
   playStream: (target: unknown) => playStream(target),
+  playLibraryFolder: (library: string, path: string) => playLibraryFolder(library, path),
   searchRadio: (query: string) => searchRadio(query),
   fetchLibrary: () => fetchLibrary(),
   fetchQueue: () => fetchQueue(),
@@ -161,7 +163,7 @@ describe('BrowsePanel', () => {
     wrapper.unmount()
   })
 
-  it('plays a file from the library tab', async () => {
+  it('plays a file from the library tab through its folder', async () => {
     favorites.mockResolvedValue([])
     fetchLibrary.mockResolvedValue({
       libraries: [{ id: 'main', name: 'Main', path: '/music' }],
@@ -181,12 +183,8 @@ describe('BrowsePanel', () => {
     await wrapper.get('.row-main').trigger('click')
     await flushPromises()
 
-    expect(playStream).toHaveBeenCalledWith({
-      url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Track.mp3',
-      title: 'Track',
-      artworkUrl: null,
-      isLive: false,
-    })
+    expect(playLibraryFolder).toHaveBeenCalledWith('main', 'Track.mp3')
+    expect(playStream).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

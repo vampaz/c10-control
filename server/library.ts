@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto'
 import { createReadStream, realpathSync, statSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { basename, extname, join, relative, resolve, sep } from 'node:path'
-import type { AppConfig, LibraryEntry, LibraryListing, LibraryRoot } from '../shared/types.ts'
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
+import type { AppConfig, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
 import { readCoverArt, type CoverArt } from './artwork.ts'
 import { detectMediaBaseUrl } from './network.ts'
 
@@ -276,6 +276,43 @@ export class LibraryService {
       .on('error', () => response.destroy())
       .pipe(response)
     return true
+  }
+
+  /**
+   * The folder that holds `relativePath` as an ordered list of targets, so
+   * picking one library track continues through the rest of its folder.
+   */
+  async folderTargets(libraryId: string, relativePath: string): Promise<{ targets: PlayTarget[]; index: number } | null> {
+    const file = this.resolveFile(libraryId, relativePath)
+    const config = this.getConfig()
+    const library = config.libraries.find((entry) => entry.id === libraryId)
+    const rootReal = library ? safeReal(library.path) : null
+    if (!file || !rootReal) {
+      return null
+    }
+
+    const directory = dirname(file)
+    const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
+    const names = entries
+      .filter((entry) => entry.isFile() && !entry.name.startsWith('.') && isAudioFile(entry.name))
+      .map((entry) => entry.name)
+      .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
+    const index = names.findIndex((name) => join(directory, name) === file)
+    if (index === -1) {
+      return null
+    }
+
+    const mediaBaseUrl = detectMediaBaseUrl(config.host, this.port, config.mediaBaseUrl)
+    const targets = names.map((name) => {
+      const path = relative(rootReal, join(directory, name)).split(sep).join('/')
+      return {
+        url: `${mediaBaseUrl}/api/library/file?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}`,
+        title: basename(name, extname(name)),
+        isLive: false,
+      }
+    })
+
+    return { targets, index }
   }
 
   /** Cover art embedded in a library file, or an image from its album folder. */
