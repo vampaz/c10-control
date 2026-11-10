@@ -62,6 +62,8 @@ No music folder is mounted by default. To play local files, add a read-only volu
 
 Then add `/music` in **Speaker settings → Music folders**, or set `C10_LIBRARY_DIR=/music` in `.env`.
 
+The library setting is saved in the `c10-data` volume, so it survives restarts and container recreation. The folder contents are not stored by Docker: mount the host folder as a volume. A path added inside the container without a mount is lost when the container is recreated, and the saved library will point at a missing folder.
+
 If you use the default bridge network, the speaker cannot fetch local files from the container. Set `C10_MEDIA_URL=http://<host-lan-ip>:8787` in `.env`, or use host networking on Linux. See the [configuration](#configuration) and [troubleshooting](#troubleshooting) sections.
 
 ## Configuration
@@ -123,6 +125,8 @@ The **Playlists** tab creates, renames and deletes lists. Press **Add the curren
 **Local files do not play.** The speaker fetches the file itself, so `localhost` will not work. Set **Media URL** to the LAN address of this machine, for example `http://192.168.1.50:8787`. In Docker bridge networking, set `C10_MEDIA_URL` in `.env`. In Docker, also make sure the music folder is mounted and added in settings.
 
 **New files do not appear.** The library is cached for five minutes. Wait for the cache to expire, or restart the app.
+
+**A Docker library disappears after recreation.** The path is saved in `c10-data`, but the folder contents are not. Mount the host folder as a volume and add that container path; a folder created inside the container without a volume is lost when the container is recreated.
 
 **Radio search fails.** The server needs outbound HTTPS to `de1.api.radio-browser.info`.
 

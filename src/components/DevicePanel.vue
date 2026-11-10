@@ -144,7 +144,7 @@ async function save(): Promise<void> {
           <button type="button" class="ghost" :disabled="!newPath.trim()" @click="addLibrary">Add</button>
         </div>
       </div>
-      <p class="hint">Each folder becomes a library in Browse → Library. The server must be able to read it.</p>
+      <p class="hint">Each folder becomes a library in Browse → Library. The server must be able to read it; in Docker, mount the folder as a volume first.</p>
 
       <label class="field">
         <span class="field-label">Media URL</span>

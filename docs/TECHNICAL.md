@@ -192,6 +192,8 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 
 All four live in the `c10-data` volume at `/data` inside the container. The `.data` directory is ignored by git. No library is configured by default: add folders in the settings dialog, or set `C10_LIBRARY_DIR` / `C10_LIBRARY_DIRS` as deployment defaults.
 
+The library path is saved in `config.json`, but the folder contents are not. In Docker, bind-mount the folder; a path inside the container without a volume is lost when the container is recreated, leaving the saved library pointing at a missing folder.
+
 ## Limits
 
 - **Push is not available.** The speaker exposes no event stream this app can use, so the server polls every 1.5 s while a client is connected and hands the result to the browser over Server-Sent Events.
