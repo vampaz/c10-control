@@ -1,3 +1,4 @@
+import { log } from './log.ts'
 import { createServer } from 'node:http'
 import { createServer as createViteServer } from 'vite'
 import { createRuntime, stopOnSignals } from './runtime.ts'
@@ -26,8 +27,8 @@ const server = createServer((request, response) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`C10 Control dev server at http://localhost:${PORT}`)
-  console.log(`Controlling speaker at ${config.host}:${config.httpPort}`)
+  log(`C10 Control dev server at http://localhost:${PORT}`)
+  log(`Controlling speaker at ${config.host}:${config.httpPort}`)
 })
 
 stopOnSignals(server, () => vite.close())

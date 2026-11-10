@@ -868,6 +868,34 @@ describe('library playback', () => {
   })
 })
 
+describe('events', () => {
+  it('streams the current state over SSE', async () => {
+    const state = connectedState()
+    const poller = {
+      subscribe: (listener: (value: unknown) => void) => {
+        listener(state)
+        return () => undefined
+      },
+    } as unknown as SpeakerPoller
+    const { url } = await start(makeDeps({ poller }))
+    const controller = new AbortController()
+
+    try {
+      const response = await fetch(`${url}/api/events`, { signal: controller.signal })
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get('content-type')).toContain('text/event-stream')
+      const reader = response.body?.getReader()
+      const chunk = await reader?.read()
+      const text = new TextDecoder().decode(chunk?.value)
+      expect(text).toContain('data: ')
+      expect(text).toContain('"connected":true')
+    } finally {
+      controller.abort()
+    }
+  })
+})
+
 describe('unknown routes', () => {
   it('answers with 404 JSON', async () => {
     const { url } = await start(makeDeps())

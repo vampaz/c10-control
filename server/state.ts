@@ -1,6 +1,7 @@
 import { emptySpeakerState, type CommandRequest, type DeviceInfo, type PlayTarget, type SpeakerState } from '../shared/types.ts'
 import type { SpeakerDevice } from './device.ts'
 import { EMPTY_MEDIA_INFO, type MediaInfo } from './mediainfo.ts'
+import { log, warn } from './log.ts'
 import { inputFromMode, modeLabel } from './status.ts'
 
 const POLL_INTERVAL_MS = 1500
@@ -109,6 +110,7 @@ export class SpeakerPoller {
         : status.status
 
       this.misses = 0
+      const reconnected = this.state.connected === false && this.state.updatedAt > 0
       const artworkUrl = this.media.artworkUrl
         ?? (this.artworkFor ? await this.artworkFor(this.media.url) : null)
       this.state = {
@@ -137,8 +139,15 @@ export class SpeakerPoller {
         const ended = status.status === 'stopped' || status.position >= status.duration - 1
         this.onPosition?.(this.media.url, status.position, status.duration, ended)
       }
+
+      if (reconnected) {
+        log('Speaker reconnected')
+      }
     } catch (error) {
       this.misses += 1
+      if (this.misses === MISSES_BEFORE_OFFLINE) {
+        warn('Speaker offline', error instanceof Error ? error.message : String(error))
+      }
       if (this.misses >= MISSES_BEFORE_OFFLINE) {
         this.state = {
           ...this.state,

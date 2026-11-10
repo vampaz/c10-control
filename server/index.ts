@@ -1,3 +1,4 @@
+import { log } from './log.ts'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { createRuntime, stopOnSignals } from './runtime.ts'
@@ -23,8 +24,8 @@ const server = createServer((request, response) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`C10 Control running at http://localhost:${PORT}`)
-  console.log(`Controlling speaker at ${config.host}:${config.httpPort}`)
+  log(`C10 Control running at http://localhost:${PORT}`)
+  log(`Controlling speaker at ${config.host}:${config.httpPort}`)
 })
 
 stopOnSignals(server)
