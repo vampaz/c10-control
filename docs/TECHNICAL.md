@@ -247,7 +247,7 @@ GitHub Actions runs lint, typecheck, tests and build on every push and pull requ
 ## Layout
 
 ```
-.github/workflows/ci.yml  lint, typecheck, tests and build on GitHub Actions
+.github/workflows/ci.yml  lint, typecheck, tests, build and a Docker smoke test
 Dockerfile                multi-stage image (build UI, then runtime)
 docker-compose.yml        container definition: port, volumes, env, health
 .env.example              environment template for compose
