@@ -8,6 +8,7 @@ const addFavorite = vi.fn(async (_station: unknown): Promise<Favorite[]> => [])
 const removeFavorite = vi.fn(async (_id: string): Promise<Favorite[]> => [])
 const playStream = vi.fn(async (_target: unknown) => undefined)
 const playLibraryFolder = vi.fn(async (_library: string, _path: string, _shuffle?: boolean): Promise<QueueSnapshot> => emptyQueue)
+const playLibraryAlbum = vi.fn(async (_library: string, _dir: string, _shuffle?: boolean): Promise<QueueSnapshot> => emptyQueue)
 const subscribeState = vi.fn((_onState: (state: unknown) => void, _onStatus: (open: boolean) => void) => () => undefined)
 const searchRadio = vi.fn(async (_query: string) => [])
 const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
@@ -56,6 +57,7 @@ vi.mock('@/api', () => ({
   removeFavorite: (id: string) => removeFavorite(id),
   playStream: (target: unknown) => playStream(target),
   playLibraryFolder: (...args: [string, string, boolean?]) => playLibraryFolder(...args),
+  playLibraryAlbum: (...args: [string, string, boolean?]) => playLibraryAlbum(...args),
   subscribeState: (onState: (state: unknown) => void, onStatus: (open: boolean) => void) => subscribeState(onState, onStatus),
   searchRadio: (query: string) => searchRadio(query),
   fetchLibrary: () => fetchLibrary(),
@@ -233,11 +235,11 @@ describe('BrowsePanel', () => {
     const actions = wrapper.findAll('.album-action')
     await actions[0].trigger('click')
     await flushPromises()
-    expect(playLibraryFolder).toHaveBeenLastCalledWith('main', 'Album/Track.mp3', false)
+    expect(playLibraryAlbum).toHaveBeenLastCalledWith('main', 'Album', false)
 
     await actions[1].trigger('click')
     await flushPromises()
-    expect(playLibraryFolder).toHaveBeenLastCalledWith('main', 'Album/Track.mp3', true)
+    expect(playLibraryAlbum).toHaveBeenLastCalledWith('main', 'Album', true)
     wrapper.unmount()
   })
 

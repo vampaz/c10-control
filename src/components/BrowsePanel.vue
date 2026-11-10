@@ -13,6 +13,7 @@ import {
   fetchPlaylists,
   fetchQueue,
   listFavorites,
+  playLibraryAlbum,
   playLibraryFolder,
   playPlaylist,
   playQueue,
@@ -439,14 +440,13 @@ async function playLibrary(entry: LibraryEntry): Promise<void> {
 /** Starts the open album from its first track, optionally shuffled. */
 async function playAlbum(shuffle: boolean): Promise<void> {
   const album = selectedAlbum.value
-  const first = library.value.entries[0]
-  if (!album || !first) {
+  if (!album) {
     return
   }
-  busyUrl.value = first.url
+  busyUrl.value = 'album'
   error.value = null
   try {
-    queue.value = await playLibraryFolder(album.libraryId, first.path, shuffle)
+    queue.value = await playLibraryAlbum(album.libraryId, album.path, shuffle)
   } catch (cause) {
     error.value = message(cause)
   } finally {

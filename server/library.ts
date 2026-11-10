@@ -76,6 +76,13 @@ function libraryFile(url: string): { libraryId: string; path: string } | null {
   }
 }
 
+/** Disc folders such as "CD1", "Disc 2" or "disk_3" belong to their parent album. */
+const DISC_FOLDER = /^(cd|disc|disk)[\s._-]*\d+$/i
+
+function albumDir(dir: string): string {
+  return dir !== '.' && DISC_FOLDER.test(basename(dir)) ? dirname(dir) : dir
+}
+
 export function isAudioFile(path: string): boolean {
   return AUDIO_EXTENSIONS.has(extname(path).toLowerCase())
 }
@@ -223,7 +230,7 @@ export class LibraryService {
     const needle = fold(query)
     const matching = scanned
       .flatMap(({ library, files }, libraryIndex) => files.map((file) => ({ library, libraryIndex, file })))
-      .filter(({ file }) => !options.dir || dirname(file.path) === options.dir)
+      .filter(({ file }) => !options.dir || albumDir(dirname(file.path)) === options.dir)
       .filter(({ library, file }) => !needle || fold(`${file.name} ${file.path} ${library.name}`).includes(needle))
       .sort((left, right) => left.libraryIndex - right.libraryIndex
         || left.file.path.localeCompare(right.file.path))
@@ -299,7 +306,7 @@ export class LibraryService {
 
     const groups = new Map<string, LibraryFile[]>()
     for (const file of files) {
-      const dir = dirname(file.path)
+      const dir = albumDir(dirname(file.path))
       const group = groups.get(dir)
       if (group) {
         group.push(file)
@@ -414,28 +421,72 @@ export class LibraryService {
       return null
     }
 
+    const targetPath = relative(rootReal, file).split(sep).join('/')
     const directory = dirname(file)
     const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
-    const names = entries
+    const paths = entries
       .filter((entry) => entry.isFile() && !entry.name.startsWith('.') && isAudioFile(entry.name))
-      .map((entry) => entry.name)
+      .map((entry) => relative(rootReal, join(directory, entry.name)).split(sep).join('/'))
       .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
-    const index = names.findIndex((name) => join(directory, name) === file)
+    const index = paths.indexOf(targetPath)
     if (index === -1) {
       return null
     }
 
-    const mediaBaseUrl = detectMediaBaseUrl(config.host, this.port, config.mediaBaseUrl)
-    const targets = names.map((name) => {
-      const path = relative(rootReal, join(directory, name)).split(sep).join('/')
-      return {
-        url: `${mediaBaseUrl}/api/library/file?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}`,
-        title: basename(name, extname(name)),
-        isLive: false,
-      }
-    })
+    return { targets: this.buildTargets(libraryId, paths), index }
+  }
 
-    return { targets, index }
+  /**
+   * Every track of an album, including tracks inside its CD1, CD2, ... disc
+   * folders, so Play and Shuffle cover the whole release.
+   */
+  async albumTargets(libraryId: string, dir: string): Promise<{ targets: PlayTarget[]; index: number } | null> {
+    const config = this.getConfig()
+    const library = config.libraries.find((entry) => entry.id === libraryId)
+    const rootReal = library ? safeReal(library.path) : null
+    if (!library || !rootReal) {
+      return null
+    }
+
+    const normalised = dir.replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+$/, '')
+    const directory = normalised === '' || normalised === '.'
+      ? rootReal
+      : safeReal(resolve(rootReal, normalised))
+    if (!directory || !isInside(rootReal, directory)) {
+      return null
+    }
+
+    const paths: string[] = []
+    const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
+    for (const entry of entries) {
+      if (entry.isFile() && !entry.name.startsWith('.') && isAudioFile(entry.name)) {
+        paths.push(relative(rootReal, join(directory, entry.name)).split(sep).join('/'))
+      } else if (entry.isDirectory() && DISC_FOLDER.test(entry.name)) {
+        const disc = join(directory, entry.name)
+        const discEntries = await readdir(disc, { withFileTypes: true }).catch(() => [])
+        for (const file of discEntries) {
+          if (file.isFile() && !file.name.startsWith('.') && isAudioFile(file.name)) {
+            paths.push(relative(rootReal, join(disc, file.name)).split(sep).join('/'))
+          }
+        }
+      }
+    }
+
+    if (!paths.length) {
+      return null
+    }
+    paths.sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
+    return { targets: this.buildTargets(libraryId, paths), index: 0 }
+  }
+
+  private buildTargets(libraryId: string, paths: string[]): PlayTarget[] {
+    const config = this.getConfig()
+    const mediaBaseUrl = detectMediaBaseUrl(config.host, this.port, config.mediaBaseUrl)
+    return paths.map((path) => ({
+      url: `${mediaBaseUrl}/api/library/file?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}`,
+      title: basename(path, extname(path)),
+      isLive: false,
+    }))
   }
 
   /**

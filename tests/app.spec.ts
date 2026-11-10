@@ -98,6 +98,7 @@ function makeDeps(overrides: Partial<AppDependencies> = {}): AppDependencies {
     })),
     stream: vi.fn(() => true),
     resolveTarget: (target: PlayTarget) => target,
+    albumTargets: vi.fn(async () => null),
   } as unknown as LibraryService
 
   const folders = {
@@ -798,8 +799,26 @@ describe('library playback', () => {
     expect(replace).toHaveBeenCalledWith(targets, 0)
   })
 
-  it('starts an album shuffled from a random track', async () => {
-    const targets = [
+  it('plays an album folder including its disc subfolders', async () => {
+    const targets = [{ url: 'http://192.168.1.135:8787/api/library/file?library=main&path=Release%2FCD1%2F01.mp3', title: '01', isLive: false }]
+    const albumTargets = vi.fn(async () => ({ targets, index: 0 }))
+    const replace = vi.fn(async () => ({ items: [], activeIndex: 0 }))
+    const library = { albumTargets } as unknown as LibraryService
+    const queue = { replace } as unknown as QueueController
+    const { url } = await start(makeDeps({ library, queue }))
+
+    const response = await fetch(`${url}/api/library/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ library: 'main', dir: 'Release' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(albumTargets).toHaveBeenCalledWith('main', 'Release')
+    expect(replace).toHaveBeenCalledWith(targets, 0)
+  })
+
+  it('starts an album shuffled from a random track', async () => {    const targets = [
       { url: 'http://192.168.1.135:8787/api/library/file?library=main&path=a.mp3', title: 'A', isLive: false },
       { url: 'http://192.168.1.135:8787/api/library/file?library=main&path=b.mp3', title: 'B', isLive: false },
     ]

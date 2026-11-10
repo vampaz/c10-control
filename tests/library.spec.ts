@@ -275,6 +275,32 @@ describe('LibraryService.artworkForPlayback', () => {
   })
 })
 
+describe('LibraryService multi-disc albums', () => {
+  it('groups disc folders under one album and plays them together', async () => {
+    const { config, root } = fixture()
+    mkdirSync(join(root, 'Release', 'CD1'), { recursive: true })
+    mkdirSync(join(root, 'Release', 'CD2'), { recursive: true })
+    writeFileSync(join(root, 'Release', 'CD1', '01.mp3'), 'x')
+    writeFileSync(join(root, 'Release', 'CD2', '01.mp3'), 'x')
+    const service = new LibraryService(() => config, 5173)
+
+    const albums = await service.albums()
+    const release = albums.albums.find((album) => album.name === 'Release')
+    expect(release?.path).toBe('Release')
+    expect(release?.trackCount).toBe(2)
+
+    const tracks = await service.listing({ libraryId: 'main', dir: 'Release' })
+    expect(tracks.entries.map((entry) => entry.path)).toEqual(['Release/CD1/01.mp3', 'Release/CD2/01.mp3'])
+
+    const album = await service.albumTargets('main', 'Release')
+    expect(album?.targets).toHaveLength(2)
+    expect(album?.index).toBe(0)
+
+    const singleDisc = await service.folderTargets('main', 'Release/CD2/01.mp3')
+    expect(singleDisc?.targets).toHaveLength(1)
+  })
+})
+
 describe('parseRange', () => {
   it('parses common byte ranges', () => {
     expect(parseRange('bytes=0-9', 100)).toEqual({ start: 0, end: 9 })

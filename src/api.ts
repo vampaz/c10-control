@@ -60,6 +60,18 @@ export function playLibraryFolder(libraryId: string, path: string, shuffle?: boo
   })
 }
 
+/** Plays a whole album folder, including its disc subfolders. */
+export function playLibraryAlbum(libraryId: string, dir: string, shuffle?: boolean): Promise<QueueSnapshot> {
+  const body: Record<string, unknown> = { library: libraryId, dir }
+  if (shuffle !== undefined) {
+    body.shuffle = shuffle
+  }
+  return request<QueueSnapshot>('/api/library/play', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 export async function searchRadio(query: string): Promise<RadioStation[]> {
   const result = await request<{ stations: RadioStation[] }>(`/api/radio/search?q=${encodeURIComponent(query)}`)
   return result.stations
