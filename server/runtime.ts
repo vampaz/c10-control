@@ -4,6 +4,7 @@ import { createRequestHandler } from './app.ts'
 import { getDataDirectory, loadConfig, saveConfig } from './config.ts'
 import { SpeakerDevice } from './device.ts'
 import { FavoriteStore } from './favorites.ts'
+import { FolderBrowser } from './folders.ts'
 import { LibraryService } from './library.ts'
 import { PlaylistStore } from './playlists.ts'
 import { PresetStore } from './presets.ts'
@@ -29,6 +30,7 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
   const playlists = new PlaylistStore(getDataDirectory())
   const library = new LibraryService(loadConfig, port)
   library.warmup()
+  const folders = new FolderBrowser(loadConfig)
   const queue = new QueueController((target) => poller.playTarget(target))
   poller.onState = (state) => void queue.onState(state)
   const sleep = new SleepTimer({
@@ -46,6 +48,7 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
     presets,
     playlists,
     library,
+    folders,
     queue,
     sleep,
     searchRadio: searchStations,

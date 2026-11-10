@@ -100,10 +100,24 @@ export interface AppConfig {
   upnpPort: number
   /** Folders scanned for local audio. */
   libraries: LibraryRoot[]
+  /** Parent folders the settings dialog may browse. */
+  browseRoots: string[]
   /** Base URL the speaker can reach this app on, empty to auto-detect. */
   mediaBaseUrl: string
   /** True when C10_HOST pins the address, so the UI cannot change it. */
   pinnedHost?: boolean
+}
+
+export interface FolderEntry {
+  name: string
+  path: string
+}
+
+export interface FolderListing {
+  path: string
+  parent: string | null
+  roots: string[]
+  folders: FolderEntry[]
 }
 
 export interface LibraryRoot {

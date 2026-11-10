@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { AppConfig, CommandRequest, CommandType, PlayTarget, RadioStation } from '../shared/types.ts'
 import type { FavoriteStore } from './favorites.ts'
+import type { FolderBrowser } from './folders.ts'
 import type { LibraryService } from './library.ts'
 import type { PlaylistStore } from './playlists.ts'
 import type { PresetStore } from './presets.ts'
@@ -23,6 +24,7 @@ export interface AppDependencies {
   presets: PresetStore
   playlists: PlaylistStore
   library: LibraryService
+  folders: FolderBrowser
   queue: QueueController
   sleep: SleepTimer
   searchRadio: (query: string) => Promise<RadioStation[]>
@@ -272,6 +274,11 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
         if (!deps.library.stream(library, path, request, response)) {
           sendJson(response, 404, { error: 'File not found' })
         }
+        return
+      }
+
+      if (pathname === '/api/folders' && method === 'GET') {
+        sendJson(response, 200, await deps.folders.listing(url.searchParams.get('path') ?? ''))
         return
       }
 

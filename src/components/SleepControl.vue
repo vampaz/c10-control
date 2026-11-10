@@ -135,7 +135,7 @@ async function cancel(): Promise<void> {
   padding: 7px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #17181a;
+  background: var(--surface-raised);
   color: var(--ink-dim);
   font: inherit;
   font-size: 0.78rem;
@@ -159,7 +159,7 @@ async function cancel(): Promise<void> {
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #101012;
+  background: var(--surface);
 }
 
 .menu button {
@@ -174,7 +174,7 @@ async function cancel(): Promise<void> {
 }
 
 .menu button:hover {
-  background: #1c1d20;
+  background: var(--surface-hover);
   color: var(--ink);
 }
 

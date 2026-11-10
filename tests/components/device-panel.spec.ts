@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import DevicePanel from '@/components/DevicePanel.vue'
 
-const CONFIG = { host: '192.168.1.100', httpPort: 80, upnpPort: 49152, libraries: [], mediaBaseUrl: '' }
+const CONFIG = { host: '192.168.1.100', httpPort: 80, upnpPort: 49152, libraries: [], browseRoots: [], mediaBaseUrl: '' }
 
 const DEVICE = {
   host: '192.168.1.100',
@@ -68,6 +68,28 @@ describe('DevicePanel', () => {
   it('shows the address from the current configuration', () => {
     const wrapper = mountPanel()
     expect((wrapper.get('input').element as HTMLInputElement).value).toBe('192.168.1.100')
+    wrapper.unmount()
+  })
+
+  it('explains when Add is clicked without a path', async () => {
+    const wrapper = mountPanel()
+    const add = wrapper.get('.library-add .ghost')
+
+    await add.trigger('click')
+
+    expect(wrapper.text()).toContain('Enter a folder path first.')
+    expect(document.activeElement).toBe(wrapper.findAll('.library-add input')[1].element)
+    wrapper.unmount()
+  })
+
+  it('adds a folder path to the list', async () => {
+    const wrapper = mountPanel()
+    const path = wrapper.findAll('.library-add input')[1]
+
+    await path.setValue('/host/music/Album')
+    await wrapper.get('.library-add .ghost').trigger('click')
+
+    expect(wrapper.text()).toContain('/host/music/Album')
     wrapper.unmount()
   })
 

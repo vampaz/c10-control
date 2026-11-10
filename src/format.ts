@@ -31,7 +31,7 @@ export function artworkStyle(seed: string): Record<string, string> {
   const second = (hue + 8 + (hash % 12)) % 360
 
   return {
-    background: `radial-gradient(120% 120% at 22% 12%, hsl(${hue} 34% 30%) 0%, hsl(${second} 24% 13%) 58%, #0a0a0b 100%)`,
+    background: `radial-gradient(120% 120% at 22% 12%, hsl(${hue} 34% 30%) 0%, hsl(${second} 24% 13%) 58%, var(--artwork-end) 100%)`,
   }
 }
 

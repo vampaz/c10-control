@@ -18,6 +18,7 @@ afterEach(() => {
   delete process.env.C10_HOST
   delete process.env.C10_LIBRARY_DIR
   delete process.env.C10_LIBRARY_DIRS
+  delete process.env.C10_BROWSE_ROOTS
   delete process.env.C10_MEDIA_URL
   for (const directory of directories.splice(0)) {
     rmSync(directory, { recursive: true, force: true })
@@ -73,6 +74,10 @@ describe('validateConfig', () => {
     expect(libraries.map((library) => library.path)).toEqual(['/music', '/other'])
   })
 
+  it('normalises and deduplicates browse roots', () => {
+    expect(validateConfig({ browseRoots: [' /host/music ', '/host/music'] }).browseRoots).toEqual(['/host/music'])
+  })
+
   it('rejects a media URL that is not http', () => {
     expect(() => validateConfig({ mediaBaseUrl: 'ftp://example.com' })).toThrow('http:// or https://')
   })
@@ -92,6 +97,7 @@ describe('saveConfig', () => {
       httpPort: 80,
       upnpPort: 49152,
       libraries: [],
+      browseRoots: [],
       mediaBaseUrl: '',
       pinnedHost: false,
     })
@@ -109,6 +115,13 @@ describe('saveConfig', () => {
     const config = loadConfig()
     expect(config.libraries).toHaveLength(1)
     expect(config.libraries[0].path).toBe('/music')
+  })
+
+  it('accepts browse roots from the environment', () => {
+    useTempDataDir()
+    process.env.C10_BROWSE_ROOTS = '/volumes,/media'
+
+    expect(loadConfig().browseRoots).toEqual(['/volumes', '/media'])
   })
 
   it('lets the environment override the default host', () => {

@@ -43,10 +43,10 @@ watch(() => props.playback.artworkUrl, () => {
   max-width: 400px;
   border-radius: 22px;
   overflow: hidden;
-  background: #141416;
+  background: var(--surface-art);
   box-shadow:
-    0 36px 70px -34px rgba(0, 0, 0, 0.95),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    0 36px 70px -34px var(--shadow-deep),
+    inset 0 0 0 1px var(--line-inset);
 }
 
 .cover {
@@ -71,8 +71,8 @@ watch(() => props.playback.artworkUrl, () => {
   width: 4px;
   height: 22%;
   border-radius: 99px;
-  background: rgba(244, 239, 232, 0.5);
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  background: var(--ink-soft);
+  filter: drop-shadow(0 2px 6px var(--shadow-text));
   animation: breathe 1.6s ease-in-out infinite alternate;
   animation-play-state: paused;
 }

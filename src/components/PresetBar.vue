@@ -93,7 +93,7 @@ function label(target: PlayTarget | null): string {
   padding: 8px 7px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #17181a;
+  background: var(--surface-raised);
   color: var(--ink-dim);
   text-align: left;
   cursor: pointer;
@@ -139,7 +139,7 @@ function label(target: PlayTarget | null): string {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(10, 10, 11, 0.72);
+  background: var(--surface-translucent);
   color: var(--ink-faint);
   opacity: 0.55;
   cursor: pointer;

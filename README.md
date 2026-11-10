@@ -46,23 +46,15 @@ npm start          # http://localhost:8787
 For an always-on machine on your network:
 
 ```sh
-cp .env.example .env      # set C10_HOST
+cp .env.example .env      # set C10_HOST and C10_MUSIC_ROOT
 docker compose up -d --build
 ```
 
 Open `http://<server>:8787`. Saved settings live in the `c10-data` volume.
 
-No music folder is mounted by default. To play local files, add a read-only volume to `docker-compose.yml`:
+`C10_MUSIC_ROOT` is mounted read-only at `/host/music`. Set it to the parent folder that contains your music, for example `/Volumes` on macOS or `/media` on Linux. On Docker Desktop, add that parent folder to **Settings → Resources → File sharing** if it is not already shared. Then open **Speaker settings → Music folders**, press **Browse folders**, pick the folder, press **Use this folder**, and save. You can also set `C10_LIBRARY_DIR=/host/music/your-folder` in `.env` to preconfigure it.
 
-```yaml
-    volumes:
-      - c10-data:/data
-      - /path/to/music:/music:ro
-```
-
-Then add `/music` in **Speaker settings → Music folders**, or set `C10_LIBRARY_DIR=/music` in `.env`.
-
-The library setting is saved in the `c10-data` volume, so it survives restarts and container recreation. The folder contents are not stored by Docker: mount the host folder as a volume. A path added inside the container without a mount is lost when the container is recreated, and the saved library will point at a missing folder.
+The library setting is saved in the `c10-data` volume, so it survives restarts and container recreation. The folder contents are not stored by Docker: the parent folder must stay mounted. A path added inside the container without a mount is lost when the container is recreated, and the saved library will point at a missing folder.
 
 If you use the default bridge network, the speaker cannot fetch local files from the container. Set `C10_MEDIA_URL=http://<host-lan-ip>:8787` in `.env`, or use host networking on Linux. See the [configuration](#configuration) and [troubleshooting](#troubleshooting) sections.
 
@@ -77,9 +69,12 @@ The settings dialog covers the speaker address, music folders and the media URL.
 | `C10_UPNP_PORT` | `49152` | UPnP control port |
 | `C10_LIBRARY_DIR` | empty | One folder scanned for local audio; unset means no library until you add one |
 | `C10_LIBRARY_DIRS` | empty | Comma-separated folders, adds several libraries |
+| `C10_BROWSE_ROOTS` | empty | Parent folders the settings folder browser may read |
 | `C10_MEDIA_URL` | auto | Base URL the speaker uses to fetch local files |
 | `PORT` | `5173` dev, `8787` start | Port this app listens on |
 | `C10_DATA_DIR` | `.data` | Where saved settings live |
+
+`C10_HOST` and `C10_MEDIA_URL` accept IP addresses or host names. The media URL must resolve on the speaker itself.
 
 If `C10_LIBRARY_DIR` or `C10_LIBRARY_DIRS` is set, it replaces the libraries saved in the settings dialog. `C10_MEDIA_URL` is only needed when the app cannot detect an address the speaker can reach, such as Docker bridge networking.
 
@@ -91,7 +86,7 @@ Open **Browse → Radio**, search for a station, and press it to play. The star 
 
 ### Local libraries
 
-Add one or more folders in **Speaker settings → Music folders**. In **Browse → Library**, pick a folder or search across all of them. Press a track to play it, or press **+** to add it to the queue.
+Add one or more folders in **Speaker settings → Music folders**. In Docker, use **Browse folders** to pick a subfolder of the mounted parent. In **Browse → Library**, pick a folder or search across all of them. Press a track to play it, or press **+** to add it to the queue.
 
 The speaker fetches the file from this app, so the app needs a LAN address the speaker can reach. If local files do not start, set **Media URL** in settings.
 

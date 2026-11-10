@@ -35,6 +35,7 @@ function fixture(): { root: string; extra: string; outside: string; config: AppC
         { id: 'main', name: 'Main', path: root },
         { id: 'extra', name: 'Extra', path: extra },
       ],
+      browseRoots: [],
       mediaBaseUrl: 'http://192.168.1.135:5173',
     },
   }

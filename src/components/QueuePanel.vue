@@ -95,11 +95,11 @@ function meta(item: QueueItem): string {
 }
 
 .row:hover {
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--hover);
 }
 
 .row.active {
-  background: rgba(232, 176, 106, 0.09);
+  background: var(--accent-soft);
 }
 
 .row-main {

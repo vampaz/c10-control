@@ -140,7 +140,7 @@ function meta(entry: LibraryEntry): string {
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #17181a;
+  background: var(--surface-raised);
   color: var(--ink);
   font: inherit;
   font-size: 0.8rem;
@@ -176,7 +176,7 @@ function meta(entry: LibraryEntry): string {
 }
 
 .row:hover {
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--hover);
 }
 
 .row-main {

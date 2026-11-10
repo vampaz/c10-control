@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import type { AppConfig, DeviceInfo, DiscoveredDevice, LibraryRoot } from '@shared/types'
-import { discoverDevices, updateConfig } from '@/api'
+import type { AppConfig, DeviceInfo, DiscoveredDevice, FolderListing, LibraryRoot } from '@shared/types'
+import { discoverDevices, fetchFolders, updateConfig } from '@/api'
 import { prettyModel } from '@/format'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 import AppIcon from '@/components/AppIcon.vue'
@@ -20,6 +20,11 @@ const host = ref(props.config.host)
 const libraries = ref<LibraryRoot[]>(props.config.libraries.map((library) => ({ ...library })))
 const newName = ref('')
 const newPath = ref('')
+const newPathInput = ref<HTMLInputElement | null>(null)
+const libraryError = ref<string | null>(null)
+const folderListing = ref<FolderListing | null>(null)
+const folderLoading = ref(false)
+const folderError = ref<string | null>(null)
 const mediaBaseUrl = ref(props.config.mediaBaseUrl)
 const devices = ref<DiscoveredDevice[]>([])
 const searching = ref(false)
@@ -59,8 +64,11 @@ function choose(device: DiscoveredDevice): void {
 function addLibrary(): void {
   const path = newPath.value.trim()
   if (!path) {
+    libraryError.value = 'Enter a folder path first.'
+    newPathInput.value?.focus()
     return
   }
+  libraryError.value = null
   libraries.value = [...libraries.value, { id: '', name: newName.value.trim(), path }]
   newName.value = ''
   newPath.value = ''
@@ -68,6 +76,46 @@ function addLibrary(): void {
 
 function removeLibrary(index: number): void {
   libraries.value = libraries.value.filter((_, position) => position !== index)
+}
+
+async function openBrowser(): Promise<void> {
+  libraryError.value = null
+  folderError.value = null
+  folderLoading.value = true
+  try {
+    folderListing.value = await fetchFolders(newPath.value.trim())
+  } catch (cause) {
+    folderError.value = cause instanceof Error ? cause.message : 'Could not open the folder browser'
+  } finally {
+    folderLoading.value = false
+  }
+}
+
+async function navigateFolder(path: string): Promise<void> {
+  folderError.value = null
+  folderLoading.value = true
+  try {
+    folderListing.value = await fetchFolders(path)
+  } catch (cause) {
+    folderError.value = cause instanceof Error ? cause.message : 'Could not read that folder'
+  } finally {
+    folderLoading.value = false
+  }
+}
+
+function chooseFolder(): void {
+  if (!folderListing.value) {
+    return
+  }
+  newPath.value = folderListing.value.path
+  folderListing.value = null
+  folderError.value = null
+  libraryError.value = null
+}
+
+function closeBrowser(): void {
+  folderListing.value = null
+  folderError.value = null
 }
 
 async function save(): Promise<void> {
@@ -109,13 +157,15 @@ async function save(): Promise<void> {
           ref="hostInput"
           v-model="host"
           type="text"
-          inputmode="decimal"
+          inputmode="text"
           autocomplete="off"
+          autocapitalize="none"
           spellcheck="false"
           placeholder="192.168.1.100"
           :disabled="config.pinnedHost"
         />
       </label>
+      <p class="hint">IP address or host name.</p>
       <p v-if="config.pinnedHost" class="hint">
         Fixed by <code>C10_HOST</code> in the environment. Change it there and restart.
       </p>
@@ -140,11 +190,50 @@ async function save(): Promise<void> {
         </ul>
         <div class="library-add">
           <input v-model="newName" type="text" placeholder="Name (optional)" autocomplete="off" />
-          <input v-model="newPath" type="text" placeholder="/path/to/music" autocomplete="off" spellcheck="false" />
-          <button type="button" class="ghost" :disabled="!newPath.trim()" @click="addLibrary">Add</button>
+          <input
+            ref="newPathInput"
+            v-model="newPath"
+            type="text"
+            placeholder="/path/to/music"
+            autocomplete="off"
+            spellcheck="false"
+            @input="libraryError = null"
+            @keydown.enter="addLibrary"
+          />
+          <button type="button" class="ghost" @click="addLibrary">Add</button>
+        </div>
+        <p v-if="libraryError" class="library-error" role="alert">{{ libraryError }}</p>
+
+        <div v-if="config.browseRoots.length" class="library-browse">
+          <button type="button" class="text-button" :disabled="folderLoading" @click="openBrowser">
+            {{ folderLoading && !folderListing ? 'Opening…' : 'Browse folders' }}
+          </button>
+
+          <p v-if="folderError" class="library-error" role="alert">{{ folderError }}</p>
+
+          <div v-if="folderListing" class="folder-browser">
+            <header class="folder-head">
+              <button type="button" class="text-button" :disabled="!folderListing.parent" @click="navigateFolder(folderListing.parent ?? '')">
+                Up
+              </button>
+              <span class="folder-path" :title="folderListing.path">{{ folderListing.path }}</span>
+              <button type="button" class="text-button" @click="closeBrowser">Close</button>
+            </header>
+
+            <ul v-if="folderListing.folders.length" class="folder-list">
+              <li v-for="folder in folderListing.folders" :key="folder.path">
+                <button type="button" class="folder-row" @click="navigateFolder(folder.path)">
+                  {{ folder.name }}
+                </button>
+              </li>
+            </ul>
+            <p v-else class="hint">No subfolders here.</p>
+
+            <button type="button" class="primary" @click="chooseFolder">Use this folder</button>
+          </div>
         </div>
       </div>
-      <p class="hint">Each folder becomes a library in Browse → Library. The server must be able to read it; in Docker, mount the folder as a volume first.</p>
+      <p class="hint">Each folder becomes a library in Browse → Library. Use Browse folders for a mounted parent, or type a path the server can read.</p>
 
       <label class="field">
         <span class="field-label">Media URL</span>
@@ -199,19 +288,21 @@ async function save(): Promise<void> {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(4, 4, 5, 0.72);
+  background: var(--overlay-strong);
   backdrop-filter: blur(8px);
 }
 
 .dialog {
   width: min(440px, 100%);
+  max-height: 90vh;
   display: grid;
   gap: 18px;
   padding: 22px;
+  overflow-y: auto;
   border-radius: 20px;
   border: 1px solid var(--line);
-  background: #121214;
-  box-shadow: 0 40px 80px -40px #000;
+  background: var(--surface-deep);
+  box-shadow: 0 40px 80px -40px var(--shadow);
 }
 
 .dialog-head {
@@ -245,7 +336,7 @@ async function save(): Promise<void> {
   padding: 12px 14px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: #191a1c;
+  background: var(--surface-input);
   color: var(--ink);
   font: inherit;
   font-variant-numeric: tabular-nums;
@@ -258,7 +349,7 @@ async function save(): Promise<void> {
 
 .field input:disabled {
   color: var(--ink-dim);
-  background: #151618;
+  background: var(--surface-disabled);
 }
 
 .libraries {
@@ -276,7 +367,7 @@ async function save(): Promise<void> {
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #17181a;
+  background: var(--surface-raised);
 }
 
 .library-text {
@@ -313,7 +404,7 @@ async function save(): Promise<void> {
   padding: 9px 10px;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: #191a1c;
+  background: var(--surface-input);
   color: var(--ink);
   font: inherit;
   font-size: 0.82rem;
@@ -322,6 +413,71 @@ async function save(): Promise<void> {
 .library-add input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+.library-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--danger);
+}
+
+.library-browse {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.folder-browser {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-deep);
+}
+
+.folder-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.folder-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-list {
+  display: grid;
+  gap: 2px;
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.folder-row {
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 0.84rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-row:hover {
+  background: var(--hover);
+  color: var(--ink);
 }
 
 .search {
@@ -345,7 +501,7 @@ async function save(): Promise<void> {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: #191a1c;
+  background: var(--surface-input);
   color: inherit;
   font: inherit;
   text-align: left;

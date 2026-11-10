@@ -1,4 +1,4 @@
-import type { AppConfig, CommandRequest, DiscoveredDevice, Favorite, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, SleepStatus, SpeakerState } from '@shared/types'
+import type { AppConfig, CommandRequest, DiscoveredDevice, Favorite, FolderListing, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, SleepStatus, SpeakerState } from '@shared/types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -59,6 +59,14 @@ export function fetchLibrary(query = '', limit = 200, offset = 0, libraryId = ''
     params.set('library', libraryId)
   }
   return request<LibraryListing>(`/api/library?${params}`)
+}
+
+export function fetchFolders(path = ''): Promise<FolderListing> {
+  const params = new URLSearchParams()
+  if (path) {
+    params.set('path', path)
+  }
+  return request<FolderListing>(`/api/folders?${params}`)
 }
 
 export async function listFavorites(): Promise<Favorite[]> {

@@ -9,11 +9,13 @@ const DEFAULT_CONFIG: AppConfig = {
   httpPort: 80,
   upnpPort: 49152,
   libraries: [],
+  browseRoots: [],
   mediaBaseUrl: '',
 }
 
 const HOST_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9.-]{0,252}$/
 const MAX_LIBRARIES = 20
+const MAX_BROWSE_ROOTS = 20
 
 export function getDataDirectory(): string {
   return process.env.C10_DATA_DIR ?? join(import.meta.dirname, '..', '.data')
@@ -36,6 +38,29 @@ function expandPath(value: string): string {
     return join(homedir(), value.slice(2))
   }
   return value ? resolve(value) : ''
+}
+
+function normalisePaths(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    return []
+  }
+
+  const seen = new Set<string>()
+  const paths: string[] = []
+
+  for (const entry of input) {
+    const path = expandPath(String(entry ?? '').trim())
+    if (!path || seen.has(path)) {
+      continue
+    }
+    seen.add(path)
+    paths.push(path)
+    if (paths.length >= MAX_BROWSE_ROOTS) {
+      break
+    }
+  }
+
+  return paths
 }
 
 function normaliseLibraries(input: unknown): LibraryRoot[] {
@@ -95,6 +120,9 @@ function environmentConfig(): Partial<AppConfig> {
   if (directories.length) {
     fromEnvironment.libraries = normaliseLibraries(directories.map((path) => ({ path })))
   }
+  if (process.env.C10_BROWSE_ROOTS) {
+    fromEnvironment.browseRoots = normalisePaths(process.env.C10_BROWSE_ROOTS.split(','))
+  }
   if (process.env.C10_MEDIA_URL) {
     fromEnvironment.mediaBaseUrl = process.env.C10_MEDIA_URL.trim()
   }
@@ -129,6 +157,10 @@ export function validateConfig(patch: ConfigPatch): Partial<AppConfig> {
 
   if (patch.libraries !== undefined) {
     clean.libraries = normaliseLibraries(patch.libraries)
+  }
+
+  if (patch.browseRoots !== undefined) {
+    clean.browseRoots = normalisePaths(patch.browseRoots)
   }
 
   if (patch.mediaBaseUrl !== undefined) {

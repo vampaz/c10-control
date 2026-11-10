@@ -533,7 +533,7 @@ function meta(station: RadioStation): string {
   z-index: 20;
   display: flex;
   justify-content: flex-end;
-  background: rgba(4, 4, 5, 0.55);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
 }
 
@@ -543,8 +543,8 @@ function meta(station: RadioStation): string {
   width: min(480px, 100%);
   height: 100%;
   border-left: 1px solid var(--line);
-  background: #101012;
-  box-shadow: -40px 0 80px -40px #000;
+  background: var(--surface);
+  box-shadow: -40px 0 80px -40px var(--shadow);
   animation: slide-in 220ms ease-out;
 }
 
@@ -580,7 +580,7 @@ function meta(station: RadioStation): string {
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #101012;
+  background: var(--surface);
 }
 
 .tabs button {
@@ -596,7 +596,7 @@ function meta(station: RadioStation): string {
 }
 
 .tabs button.active {
-  background: #1c1d20;
+  background: var(--surface-hover);
   color: var(--ink);
 }
 
@@ -614,7 +614,7 @@ function meta(station: RadioStation): string {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #17181a;
+  background: var(--surface-raised);
   color: var(--ink-faint);
 }
 
@@ -670,7 +670,7 @@ function meta(station: RadioStation): string {
 }
 
 .row:hover {
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--hover);
 }
 
 .row-main {
@@ -743,7 +743,7 @@ function meta(station: RadioStation): string {
   gap: 8px;
   padding: 14px 20px 18px;
   border-top: 1px solid var(--line);
-  background: #0d0d0f;
+  background: var(--surface-sunken);
 }
 
 .foot-label {
@@ -764,7 +764,7 @@ function meta(station: RadioStation): string {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 11px;
-  background: #17181a;
+  background: var(--surface-raised);
   color: var(--ink);
   font: inherit;
   font-size: 0.86rem;

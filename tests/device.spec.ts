@@ -6,6 +6,7 @@ const CONFIG = {
   httpPort: 80,
   upnpPort: 49152,
   libraries: [],
+  browseRoots: [],
   mediaBaseUrl: '',
 }
 

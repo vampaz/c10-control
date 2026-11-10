@@ -17,7 +17,7 @@ import VolumeControl from '@/components/VolumeControl.vue'
 
 const { state, stream, busy, commandError, online, playing, run, play } = useSpeaker()
 
-const config = ref<AppConfig>({ host: '', httpPort: 80, upnpPort: 49152, libraries: [], mediaBaseUrl: '' })
+const config = ref<AppConfig>({ host: '', httpPort: 80, upnpPort: 49152, libraries: [], browseRoots: [], mediaBaseUrl: '' })
 const settingsOpen = ref(false)
 const settingsButton = ref<HTMLButtonElement | null>(null)
 const browseOpen = ref(false)

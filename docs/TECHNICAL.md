@@ -79,6 +79,7 @@ The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs 
 | `server/presets.ts` | Six preset slots in `.data/presets.json` |
 | `server/playlists.ts` | Named playlists in `.data/playlists.json` |
 | `server/library.ts` | Multi-folder index, safe path resolution and Range streaming |
+| `server/folders.ts` | Read-only directory listing for the settings folder browser |
 | `server/queue.ts` | App-side queue and auto-advance |
 | `server/sleep.ts` | Sleep timer with fade-out and volume restore |
 | `src/components/BrowsePanel.vue` | Radio search, favorites, libraries, queue and playlists |
@@ -161,6 +162,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `DELETE` | `/api/sleep` | Cancel the timer |
 | `GET` | `/api/library` | Indexed files with speaker-ready URLs, `?q=&library=&limit=&offset=` |
 | `GET` | `/api/library/file?library=&path=` | Stream a file, with Range support |
+| `GET` | `/api/folders?path=` | List directories under the browse roots |
 | `GET` | `/api/playlists` | List playlists |
 | `POST` | `/api/playlists` | Create `{ name }` |
 | `PUT` | `/api/playlists/:id` | Rename a playlist |
@@ -192,6 +194,8 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 
 All four live in the `c10-data` volume at `/data` inside the container. The `.data` directory is ignored by git. No library is configured by default: add folders in the settings dialog, or set `C10_LIBRARY_DIR` / `C10_LIBRARY_DIRS` as deployment defaults.
 
+The settings folder browser lists directories under `C10_BROWSE_ROOTS` only. In the Docker compose file that root is `/host/music`, backed by the read-only `C10_MUSIC_ROOT` mount.
+
 The library path is saved in `config.json`, but the folder contents are not. In Docker, bind-mount the folder; a path inside the container without a volume is lost when the container is recreated, leaving the saved library pointing at a missing folder.
 
 ## Limits
@@ -203,7 +207,7 @@ The library path is saved in `config.json`, but the folder contents are not. In 
 - **Plex is not implemented.** Plex's media API answers `401` without an `X-Plex-Token`, even on the LAN. A link-code sign-in is possible; folder libraries and playlists were the priority.
 - **The queue is in memory.** Restarting the server clears it; the speaker keeps playing the current track.
 - **Library scans are cached for five minutes.** New files appear after the cache expires or after a restart.
-- **Local files need a speaker-reachable URL.** The speaker fetches the file itself, so `localhost` will not work. The app detects an address on the speaker's subnet, and `C10_MEDIA_URL` overrides it for Docker bridge networks. Docker does not mount a music folder by default; add a read-only volume and then add that path as a library.
+- **Local files need a speaker-reachable URL.** The speaker fetches the file itself, so `localhost` will not work. The app detects an address on the speaker's subnet, and `C10_MEDIA_URL` overrides it for Docker bridge networks. Docker compose mounts `C10_MUSIC_ROOT` read-only at `/host/music` and exposes it through the settings folder browser; paths outside that mount are not visible to the container.
 - **Sleep timer, presets and playlists are app-side.** They run in this server, not on the speaker, and stop if the server stops.
 - **Discovery needs multicast.** If SSDP is blocked on your network, or the app runs in a Docker bridge network, enter the address by hand or set `C10_HOST`.
 - **Radio search needs outbound HTTPS** to `de1.api.radio-browser.info`. Playback itself only needs the speaker to reach the stream.
@@ -248,6 +252,7 @@ server/
   presets.ts      six preset slots
   playlists.ts    named playlists and their tracks
   library.ts      multi-folder index, path safety, Range streaming
+  folders.ts      read-only directory listing for the folder browser
   queue.ts        app-side queue and auto-advance
   sleep.ts        sleep timer with fade-out
   network.ts      local address detection for library URLs

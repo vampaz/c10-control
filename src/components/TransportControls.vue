@@ -153,9 +153,9 @@ function onSeekCommit(): void {
   place-items: center;
   border-radius: 50%;
   border: 0;
-  color: #16120c;
+  color: var(--on-accent);
   background: var(--accent);
-  box-shadow: 0 18px 36px -18px rgba(232, 176, 106, 0.9);
+  box-shadow: 0 18px 36px -18px var(--accent-glow);
   transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 

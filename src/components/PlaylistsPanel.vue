@@ -184,7 +184,7 @@ function meta(item: PlaylistItem): string {
   padding: 9px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #17181a;
+  background: var(--surface-raised);
   color: var(--ink);
   font: inherit;
   font-size: 0.84rem;
@@ -216,7 +216,7 @@ function meta(item: PlaylistItem): string {
 
 .playlist-row:hover,
 .playlist-row.active {
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--hover);
 }
 
 .playlist-row.active {
@@ -275,7 +275,7 @@ function meta(item: PlaylistItem): string {
   padding: 7px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #17181a;
+  background: var(--surface-raised);
   color: var(--ink-dim);
   font: inherit;
   font-size: 0.78rem;
@@ -309,7 +309,7 @@ function meta(item: PlaylistItem): string {
 }
 
 .item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--hover);
 }
 
 .item-text {

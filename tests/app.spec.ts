@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { emptySpeakerState, type AppConfig, type SpeakerState } from '../shared/types.ts'
 import { createRequestHandler, type AppDependencies } from '../server/app.ts'
 import type { FavoriteStore } from '../server/favorites.ts'
+import type { FolderBrowser } from '../server/folders.ts'
 import type { LibraryService } from '../server/library.ts'
 import type { PlaylistStore } from '../server/playlists.ts'
 import type { PresetStore } from '../server/presets.ts'
@@ -15,6 +16,7 @@ const CONFIG: AppConfig = {
   httpPort: 80,
   upnpPort: 49152,
   libraries: [],
+  browseRoots: [],
   mediaBaseUrl: '',
 }
 
@@ -97,6 +99,10 @@ function makeDeps(overrides: Partial<AppDependencies> = {}): AppDependencies {
     stream: vi.fn(() => true),
   } as unknown as LibraryService
 
+  const folders = {
+    listing: vi.fn(async () => ({ path: '', parent: null, roots: [], folders: [] })),
+  } as unknown as FolderBrowser
+
   const playlists = {
     list: vi.fn(() => []),
     create: vi.fn(() => []),
@@ -132,6 +138,7 @@ function makeDeps(overrides: Partial<AppDependencies> = {}): AppDependencies {
     presets,
     playlists,
     library,
+    folders,
     queue,
     sleep,
     searchRadio: vi.fn(async () => []),
@@ -627,6 +634,27 @@ describe('playlists', () => {
     await fetch(`${url}/api/playlists/one/play`, { method: 'POST' })
 
     expect(deps.queue.replace).toHaveBeenCalledWith(PLAYLIST.items)
+  })
+})
+
+describe('folders', () => {
+  it('lists directories under a browse root', async () => {
+    const folders = {
+      listing: vi.fn(async () => ({
+        path: '/host/music',
+        parent: null,
+        roots: ['/host/music'],
+        folders: [{ name: 'Album', path: '/host/music/Album' }],
+      })),
+    } as unknown as FolderBrowser
+    const { url } = await start(makeDeps({ folders }))
+
+    const response = await fetch(`${url}/api/folders?path=%2Fhost%2Fmusic`)
+    const body = (await response.json()) as { folders: unknown[] }
+
+    expect(response.status).toBe(200)
+    expect(folders.listing).toHaveBeenCalledWith('/host/music')
+    expect(body.folders).toHaveLength(1)
   })
 })
 
