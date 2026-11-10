@@ -21,14 +21,13 @@ import {
   renamePlaylist,
   searchRadio,
 } from '@/api'
-import { useFocusTrap } from '@/composables/useFocusTrap'
 import { titleForUrl } from '@/format'
 import AppIcon from '@/components/AppIcon.vue'
 import LibraryPanel from '@/components/LibraryPanel.vue'
 import PlaylistsPanel from '@/components/PlaylistsPanel.vue'
 import QueuePanel from '@/components/QueuePanel.vue'
 
-const emit = defineEmits<{ close: []; played: [] }>()
+const emit = defineEmits<{ close: [] }>()
 
 const tab = ref<'radio' | 'library' | 'queue' | 'playlists'>('radio')
 const favorites = ref<Favorite[]>([])
@@ -56,9 +55,8 @@ const queueError = ref<string | null>(null)
 const playlists = ref<Playlist[]>([])
 const selectedPlaylist = ref('')
 const playlistError = ref<string | null>(null)
-const searchInput = ref<HTMLInputElement | null>(null)
 
-const { container: drawer } = useFocusTrap(() => emit('close'))
+const drawer = ref<HTMLElement | null>(null)
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let libraryTimer: ReturnType<typeof setTimeout> | null = null
@@ -66,7 +64,6 @@ let libraryGeneration = 0
 
 onMounted(async () => {
   drawer.value?.focus()
-  searchInput.value?.focus()
   try {
     favorites.value = await listFavorites()
   } catch (cause) {
@@ -309,7 +306,6 @@ async function play(target: { url: string; title: string; artworkUrl: string | n
   error.value = null
   try {
     await playStream({ ...target, isLive: target.isLive ?? true })
-    emit('played')
   } catch (cause) {
     error.value = message(cause)
   } finally {
@@ -346,198 +342,196 @@ function meta(station: RadioStation): string {
 </script>
 
 <template>
-  <div class="overlay" @click.self="emit('close')">
-    <aside ref="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="browse-title" tabindex="-1">
-      <header class="drawer-head">
-        <h2 id="browse-title">Browse</h2>
-        <button type="button" class="icon-button" aria-label="Close browse" @click="emit('close')">
-          <AppIcon name="close" :size="18" />
-        </button>
-      </header>
+  <aside
+    id="browse-panel"
+    ref="drawer"
+    class="drawer"
+    aria-labelledby="browse-title"
+    tabindex="-1"
+    @keydown.esc="emit('close')"
+  >
+    <header class="drawer-head">
+      <h2 id="browse-title">Browse</h2>
+      <button type="button" class="icon-button" aria-label="Close browse" @click="emit('close')">
+        <AppIcon name="close" :size="18" />
+      </button>
+    </header>
 
-      <div class="tabs" role="tablist" aria-label="Browse source">
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="tab === 'radio'"
-          :class="{ active: tab === 'radio' }"
-          @click="setTab('radio')"
-        >
-          Radio
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="tab === 'library'"
-          :class="{ active: tab === 'library' }"
-          @click="setTab('library')"
-        >
-          Library
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="tab === 'queue'"
-          :class="{ active: tab === 'queue' }"
-          @click="setTab('queue')"
-        >
-          Queue<span v-if="queue.items.length" class="count">{{ queue.items.length }}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="tab === 'playlists'"
-          :class="{ active: tab === 'playlists' }"
-          @click="setTab('playlists')"
-        >
-          Playlists
-        </button>
-      </div>
+    <div class="tabs" role="tablist" aria-label="Browse source">
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'radio'"
+        :class="{ active: tab === 'radio' }"
+        @click="setTab('radio')"
+      >
+        Radio
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'library'"
+        :class="{ active: tab === 'library' }"
+        @click="setTab('library')"
+      >
+        Library
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'queue'"
+        :class="{ active: tab === 'queue' }"
+        @click="setTab('queue')"
+      >
+        Queue<span v-if="queue.items.length" class="count">{{ queue.items.length }}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'playlists'"
+        :class="{ active: tab === 'playlists' }"
+        @click="setTab('playlists')"
+      >
+        Playlists
+      </button>
+    </div>
 
-      <label v-if="tab === 'radio' || tab === 'library'" class="search">
-        <AppIcon name="search" :size="16" />
+    <label v-if="tab === 'radio' || tab === 'library'" class="search">
+      <AppIcon name="search" :size="16" />
+      <input
+        v-model="query"
+        type="search"
+        :placeholder="searchPlaceholder"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </label>
+
+    <p v-if="error && tab === 'radio'" class="error" role="alert">{{ error }}</p>
+
+    <div class="scroll">
+      <template v-if="tab === 'radio'">
+        <section v-if="!query.trim()" class="group">
+          <h3>Favorites</h3>
+          <ul v-if="favorites.length" class="list">
+            <li v-for="station in favorites" :key="station.id" class="row">
+              <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
+                <span class="row-name">{{ station.name }}</span>
+                <span class="row-meta">{{ meta(station) || 'Saved station' }}</span>
+              </button>
+              <button
+                type="button"
+                class="star"
+                :aria-pressed="true"
+                :aria-label="`Remove ${station.name} from favorites`"
+                @click="toggleFavorite(station)"
+              >
+                <AppIcon name="starFilled" :size="17" />
+              </button>
+            </li>
+          </ul>
+          <p v-else class="hint">No favorites yet. Search for a station and tap the star.</p>
+        </section>
+
+        <section v-if="query.trim()" class="group">
+          <h3>{{ searching ? 'Searching…' : 'Stations' }}</h3>
+          <ul v-if="results.length" class="list">
+            <li v-for="station in results" :key="station.id" class="row">
+              <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
+                <span class="row-name">{{ station.name }}</span>
+                <span class="row-meta">{{ meta(station) }}</span>
+              </button>
+              <button
+                type="button"
+                class="star"
+                :aria-pressed="favoriteFor(station.url) !== undefined"
+                :aria-label="`${favoriteFor(station.url) ? 'Remove' : 'Add'} ${station.name} ${favoriteFor(station.url) ? 'from' : 'to'} favorites`"
+                @click="toggleFavorite(station)"
+              >
+                <AppIcon :name="favoriteFor(station.url) ? 'starFilled' : 'star'" :size="17" />
+              </button>
+            </li>
+          </ul>
+          <p v-else-if="searched && !searching" class="hint">Nothing found for “{{ query.trim() }}”.</p>
+          <p v-else-if="searching" class="hint">Looking up stations…</p>
+        </section>
+      </template>
+
+      <template v-else-if="tab === 'library'">
+        <p v-if="libraryError" class="error" role="alert">{{ libraryError }}</p>
+        <p v-else-if="libraryLoading" class="hint">Reading the library…</p>
+        <LibraryPanel
+          v-else
+          :entries="library.entries"
+          :total="library.total"
+          :libraries="library.libraries"
+          :selected-library="libraryFilter"
+          :media-base-url="library.mediaBaseUrl"
+          :query="query"
+          :busy="busyUrl !== null"
+          :loading="libraryLoading"
+          @play="playLibrary"
+          @queue="addTrackToQueue"
+          @more="loadMoreLibrary"
+          @select="setLibrary"
+        />
+      </template>
+
+      <template v-else-if="tab === 'queue'">
+        <p v-if="queueError" class="error" role="alert">{{ queueError }}</p>
+        <QueuePanel
+          :items="queue.items"
+          :active-index="queue.activeIndex"
+          :busy="busyUrl !== null"
+          @play="playQueued"
+          @remove="removeQueued"
+          @clear="clearQueued"
+        />
+      </template>
+
+      <template v-else>
+        <p v-if="playlistError" class="error" role="alert">{{ playlistError }}</p>
+        <PlaylistsPanel
+          :playlists="playlists"
+          :selected-id="selectedPlaylist"
+          :busy="busyUrl !== null"
+          @create="createNewPlaylist"
+          @select="selectedPlaylist = $event"
+          @rename="renameSelectedPlaylist"
+          @remove="deleteSelectedPlaylist"
+          @play="playSelectedPlaylist"
+          @add-current="addCurrentTrack"
+          @remove-item="removeItemFromPlaylist"
+        />
+      </template>
+    </div>
+
+    <footer class="drawer-foot">
+      <span class="foot-label">Play a stream</span>
+      <div class="stream-row">
         <input
-          ref="searchInput"
-          v-model="query"
-          type="search"
-          :placeholder="searchPlaceholder"
+          v-model="customUrl"
+          type="url"
+          placeholder="https://…"
           autocomplete="off"
           spellcheck="false"
+          aria-label="Stream URL"
+          @keydown.enter="playCustom"
         />
-      </label>
-
-      <p v-if="error && tab === 'radio'" class="error" role="alert">{{ error }}</p>
-
-      <div class="scroll">
-        <template v-if="tab === 'radio'">
-          <section v-if="!query.trim()" class="group">
-            <h3>Favorites</h3>
-            <ul v-if="favorites.length" class="list">
-              <li v-for="station in favorites" :key="station.id" class="row">
-                <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
-                  <span class="row-name">{{ station.name }}</span>
-                  <span class="row-meta">{{ meta(station) || 'Saved station' }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="star"
-                  :aria-pressed="true"
-                  :aria-label="`Remove ${station.name} from favorites`"
-                  @click="toggleFavorite(station)"
-                >
-                  <AppIcon name="starFilled" :size="17" />
-                </button>
-              </li>
-            </ul>
-            <p v-else class="hint">No favorites yet. Search for a station and tap the star.</p>
-          </section>
-
-          <section v-if="query.trim()" class="group">
-            <h3>{{ searching ? 'Searching…' : 'Stations' }}</h3>
-            <ul v-if="results.length" class="list">
-              <li v-for="station in results" :key="station.id" class="row">
-                <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
-                  <span class="row-name">{{ station.name }}</span>
-                  <span class="row-meta">{{ meta(station) }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="star"
-                  :aria-pressed="favoriteFor(station.url) !== undefined"
-                  :aria-label="`${favoriteFor(station.url) ? 'Remove' : 'Add'} ${station.name} ${favoriteFor(station.url) ? 'from' : 'to'} favorites`"
-                  @click="toggleFavorite(station)"
-                >
-                  <AppIcon :name="favoriteFor(station.url) ? 'starFilled' : 'star'" :size="17" />
-                </button>
-              </li>
-            </ul>
-            <p v-else-if="searched && !searching" class="hint">Nothing found for “{{ query.trim() }}”.</p>
-            <p v-else-if="searching" class="hint">Looking up stations…</p>
-          </section>
-        </template>
-
-        <template v-else-if="tab === 'library'">
-          <p v-if="libraryError" class="error" role="alert">{{ libraryError }}</p>
-          <p v-else-if="libraryLoading" class="hint">Reading the library…</p>
-          <LibraryPanel
-            v-else
-            :entries="library.entries"
-            :total="library.total"
-            :libraries="library.libraries"
-            :selected-library="libraryFilter"
-            :media-base-url="library.mediaBaseUrl"
-            :query="query"
-            :busy="busyUrl !== null"
-            :loading="libraryLoading"
-            @play="playLibrary"
-            @queue="addTrackToQueue"
-            @more="loadMoreLibrary"
-            @select="setLibrary"
-          />
-        </template>
-
-        <template v-else-if="tab === 'queue'">
-          <p v-if="queueError" class="error" role="alert">{{ queueError }}</p>
-          <QueuePanel
-            :items="queue.items"
-            :active-index="queue.activeIndex"
-            :busy="busyUrl !== null"
-            @play="playQueued"
-            @remove="removeQueued"
-            @clear="clearQueued"
-          />
-        </template>
-
-        <template v-else>
-          <p v-if="playlistError" class="error" role="alert">{{ playlistError }}</p>
-          <PlaylistsPanel
-            :playlists="playlists"
-            :selected-id="selectedPlaylist"
-            :busy="busyUrl !== null"
-            @create="createNewPlaylist"
-            @select="selectedPlaylist = $event"
-            @rename="renameSelectedPlaylist"
-            @remove="deleteSelectedPlaylist"
-            @play="playSelectedPlaylist"
-            @add-current="addCurrentTrack"
-            @remove-item="removeItemFromPlaylist"
-          />
-        </template>
+        <button type="button" class="primary" :disabled="!customUrl.trim() || busyUrl !== null" @click="playCustom">
+          Play
+        </button>
       </div>
-
-      <footer class="drawer-foot">
-        <span class="foot-label">Play a stream</span>
-        <div class="stream-row">
-          <input
-            v-model="customUrl"
-            type="url"
-            placeholder="https://…"
-            autocomplete="off"
-            spellcheck="false"
-            aria-label="Stream URL"
-            @keydown.enter="playCustom"
-          />
-          <button type="button" class="primary" :disabled="!customUrl.trim() || busyUrl !== null" @click="playCustom">
-            Play
-          </button>
-        </div>
-      </footer>
-    </aside>
-  </div>
+    </footer>
+  </aside>
 </template>
 
 <style scoped>
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  justify-content: flex-end;
-  background: var(--overlay);
-  backdrop-filter: blur(4px);
-}
-
 .drawer {
+  position: fixed;
+  inset-block: 0;
+  right: 0;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   width: min(480px, 100%);

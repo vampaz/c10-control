@@ -123,7 +123,11 @@ function closeSettings(): void {
   settingsButton.value?.focus()
 }
 
-function openBrowse(): void {
+function toggleBrowse(): void {
+  if (browseOpen.value) {
+    closeBrowse()
+    return
+  }
   browseOpen.value = true
 }
 
@@ -178,7 +182,7 @@ function onKeydown(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="app" :class="{ 'is-playing': playing }">
+  <div class="app" :class="{ 'is-playing': playing, 'browse-open': browseOpen }">
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark">C10</span>
@@ -193,7 +197,14 @@ function onKeydown(event: KeyboardEvent): void {
           <i class="dot" aria-hidden="true" />
           {{ statusLabel }}
         </span>
-        <button ref="browseButton" type="button" class="browse-button" @click="openBrowse">
+        <button
+          ref="browseButton"
+          type="button"
+          class="browse-button"
+          :aria-expanded="browseOpen"
+          aria-controls="browse-panel"
+          @click="toggleBrowse"
+        >
           <AppIcon name="browse" :size="16" />
           Browse
         </button>
@@ -210,10 +221,12 @@ function onKeydown(event: KeyboardEvent): void {
     </header>
 
     <main class="console">
-      <ArtworkTile :playback="state.playback" :playing="playing" />
-
       <section class="panel" aria-label="Controls">
-        <TrackInfo :playback="state.playback" :playing="playing" :online="online" />
+        <div class="now-playing">
+          <ArtworkTile :playback="state.playback" :playing="playing" />
+          <TrackInfo :playback="state.playback" :playing="playing" :online="online" />
+        </div>
+
 
         <div v-if="!online && state.updatedAt > 0" class="notice" role="status">
           <p class="notice-title">Speaker unreachable</p>
@@ -263,6 +276,6 @@ function onKeydown(event: KeyboardEvent): void {
       @saved="onSaved"
     />
 
-    <BrowsePanel v-if="browseOpen" @close="closeBrowse" @played="closeBrowse" />
+    <BrowsePanel v-if="browseOpen" @close="closeBrowse" />
   </div>
 </template>

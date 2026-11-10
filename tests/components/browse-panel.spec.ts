@@ -110,7 +110,7 @@ describe('BrowsePanel', () => {
     wrapper.unmount()
   })
 
-  it('plays a favorite and reports it', async () => {
+  it('plays a favorite and stays open', async () => {
     favorites.mockResolvedValue([STATION])
     const wrapper = await mountPanel()
 
@@ -123,7 +123,7 @@ describe('BrowsePanel', () => {
       artworkUrl: null,
       isLive: true,
     })
-    expect(wrapper.emitted('played')).toHaveLength(1)
+    expect(wrapper.emitted('close')).toBeUndefined()
     wrapper.unmount()
   })
 
@@ -145,7 +145,7 @@ describe('BrowsePanel', () => {
     const wrapper = await mountPanel()
 
     await wrapper.get('button[aria-label="Close browse"]').trigger('click')
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await wrapper.get('.drawer').trigger('keydown', { key: 'Escape' })
 
     expect(wrapper.emitted('close')).toHaveLength(2)
     wrapper.unmount()

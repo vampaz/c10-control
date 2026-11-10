@@ -38,14 +38,13 @@ watch(() => props.playback.artworkUrl, () => {
 <style scoped>
 .artwork {
   position: relative;
+  width: clamp(84px, 15vw, 124px);
   aspect-ratio: 1;
-  width: 100%;
-  max-width: 400px;
-  border-radius: 22px;
+  border-radius: 16px;
   overflow: hidden;
   background: var(--surface-art);
   box-shadow:
-    0 36px 70px -34px var(--shadow-deep),
+    0 16px 30px -20px var(--shadow-deep),
     inset 0 0 0 1px var(--line-inset);
 }
 
@@ -62,13 +61,13 @@ watch(() => props.playback.artworkUrl, () => {
   inset: auto 0 0 auto;
   display: flex;
   align-items: flex-end;
-  gap: 5px;
-  padding: 22px;
-  height: 42%;
+  gap: 3px;
+  padding: 9px;
+  height: 46%;
 }
 
 .bar {
-  width: 4px;
+  width: 3px;
   height: 22%;
   border-radius: 99px;
   background: var(--ink-soft);
@@ -99,12 +98,6 @@ watch(() => props.playback.artworkUrl, () => {
   to {
     transform: scaleY(1.15);
     opacity: 1;
-  }
-}
-
-@media (max-width: 860px) {
-  .artwork {
-    max-width: 300px;
   }
 }
 
