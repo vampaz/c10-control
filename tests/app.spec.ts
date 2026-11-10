@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { emptySpeakerState, type AppConfig, type PlayTarget, type SpeakerState } from '../shared/types.ts'
 import { createRequestHandler, type AppDependencies } from '../server/app.ts'
+import { buildQueueContext } from '../server/playqueue.ts'
 import type { FavoriteStore } from '../server/favorites.ts'
 import type { FolderBrowser } from '../server/folders.ts'
 import type { LibraryService } from '../server/library.ts'
@@ -133,6 +134,9 @@ function makeDeps(overrides: Partial<AppDependencies> = {}): AppDependencies {
       ensureFresh,
       run,
       playTarget,
+      startSpeakerQueue: vi.fn(async () => undefined),
+      browseSpeakerQueue: vi.fn(async () => ''),
+      deleteSpeakerQueue: vi.fn(async () => undefined),
     } as unknown as SpeakerPoller,
     getConfig: () => CONFIG,
     setConfig: (patch) => ({ ...CONFIG, ...patch }),
@@ -914,6 +918,44 @@ describe('events', () => {
     } finally {
       controller.abort()
     }
+  })
+})
+
+describe('speaker queue', () => {
+  it('rejects an empty app queue', async () => {
+    const { url } = await start(makeDeps())
+
+    const response = await fetch(`${url}/api/speaker-queue`, { method: 'POST' })
+
+    expect(response.status).toBe(400)
+  })
+
+  it('hands the app queue to the speaker', async () => {
+    const items = [{ id: 'a', url: 'http://host/a.mp3', title: 'A', isLive: false }]
+    const clear = vi.fn()
+    const queue = { snapshot: () => ({ items, activeIndex: 0 }), clear } as unknown as QueueController
+    const startSpeakerQueue = vi.fn(async () => undefined)
+    const deps = makeDeps({ queue, poller: { startSpeakerQueue } as unknown as SpeakerPoller })
+    const { url } = await start(deps)
+
+    const response = await fetch(`${url}/api/speaker-queue`, { method: 'POST' })
+
+    expect(response.status).toBe(200)
+    expect(startSpeakerQueue).toHaveBeenCalledWith(expect.stringContaining('<Track1>'), 0)
+    expect(clear).toHaveBeenCalled()
+  })
+
+  it('lists the speaker queue', async () => {
+    const context = buildQueueContext('C10Control', [{ url: 'http://host/a.mp3', title: 'A', isLive: false }])
+    const browseSpeakerQueue = vi.fn(async () => context)
+    const deps = makeDeps({ poller: { browseSpeakerQueue } as unknown as SpeakerPoller })
+    const { url } = await start(deps)
+
+    const response = await fetch(`${url}/api/speaker-queue`)
+    const body = (await response.json()) as { tracks: unknown[] }
+
+    expect(response.status).toBe(200)
+    expect(body.tracks).toHaveLength(1)
   })
 })
 

@@ -185,6 +185,9 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `POST` | `/api/queue/play` | Play `{ index }` |
 | `POST` | `/api/queue/next-up` | Insert a track after the active one |
 | `POST` | `/api/queue/move` | Move `{ from, to }` positions |
+| `GET` | `/api/speaker-queue` | Tracks in the device-side queue |
+| `POST` | `/api/speaker-queue` | Send the app queue to the speaker and play it |
+| `DELETE` | `/api/speaker-queue` | Remove the device-side queue |
 | `POST` | `/api/queue/next` | Move forward in the queue |
 | `POST` | `/api/queue/previous` | Move back in the queue |
 | `PUT` | `/api/queue/mode` | Set `{ repeat, shuffle }` |

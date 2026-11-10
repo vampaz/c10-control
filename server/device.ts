@@ -6,6 +6,7 @@ import { mapTransportState, parsePlayerStatusPayload, type PlayerStatus } from '
 
 const AV_TRANSPORT = 'urn:schemas-upnp-org:service:AVTransport:1'
 const RENDERING_CONTROL = 'urn:schemas-upnp-org:service:RenderingControl:1'
+const PLAY_QUEUE = 'urn:schemas-wiimu-com:service:PlayQueue:1'
 const REQUEST_TIMEOUT_MS = 3000
 const INPUTS: SpeakerInput[] = ['wifi', 'bluetooth', 'line-in', 'optical']
 
@@ -81,6 +82,27 @@ export class SpeakerDevice {
   /** Cover art, subtitle and current URI from the UPnP media description. */
   async getMediaInfo(): Promise<MediaInfo> {
     return parseMediaInfo(await this.soapPayload(AV_TRANSPORT, 'rendertransport1', 'GetMediaInfo'))
+  }
+
+  async createPlayQueue(context: string): Promise<void> {
+    await this.soap(PLAY_QUEUE, 'PlayQueue1', 'CreateQueue', { QueueContext: context })
+  }
+
+  async deletePlayQueue(name: string): Promise<void> {
+    await this.soap(PLAY_QUEUE, 'PlayQueue1', 'DeleteQueue', { QueueName: name })
+  }
+
+  async browsePlayQueue(name: string): Promise<string> {
+    const fields = await this.soap(PLAY_QUEUE, 'PlayQueue1', 'BrowseQueue', { QueueName: name })
+    return fields.QueueContext ?? ''
+  }
+
+  async playPlayQueue(name: string, index: number): Promise<void> {
+    await this.soap(PLAY_QUEUE, 'PlayQueue1', 'PlayQueueWithIndex', { QueueName: name, Index: index })
+  }
+
+  async setPlayQueueLoop(mode: number): Promise<void> {
+    await this.soap(PLAY_QUEUE, 'PlayQueue1', 'SetQueueLoopMode', { LoopMode: mode })
   }
 
   /** The authoritative play state, including for local files that report `none`. */

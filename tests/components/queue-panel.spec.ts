@@ -82,6 +82,16 @@ describe('QueuePanel', () => {
     wrapper.unmount()
   })
 
+  it('emits the speaker handoff', async () => {
+    const wrapper = mountPanel()
+    const button = wrapper.findAll('.head-actions .text-button').find((entry) => entry.text() === 'Play on speaker')
+
+    await button?.trigger('click')
+
+    expect(wrapper.emitted('speaker')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('removes a track', async () => {
     const wrapper = mountPanel()
 
@@ -93,8 +103,9 @@ describe('QueuePanel', () => {
 
   it('clears the queue', async () => {
     const wrapper = mountPanel()
+    const clear = wrapper.findAll('.text-button').find((entry) => entry.text() === 'Clear')
 
-    await wrapper.get('.text-button').trigger('click')
+    await clear?.trigger('click')
 
     expect(wrapper.emitted('clear')).toHaveLength(1)
     wrapper.unmount()

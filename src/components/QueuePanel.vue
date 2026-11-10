@@ -15,6 +15,7 @@ const emit = defineEmits<{
   remove: [id: string]
   clear: []
   move: [from: number, to: number]
+  speaker: []
 }>()
 
 const dragging = ref<number | null>(null)
@@ -53,9 +54,20 @@ function onDrop(index: number): void {
   <section class="group">
     <header class="queue-head">
       <h3>Queue</h3>
-      <button v-if="items.length" type="button" class="text-button" :disabled="busy" @click="emit('clear')">
-        Clear
-      </button>
+      <div class="head-actions">
+        <button
+          v-if="items.length"
+          type="button"
+          class="text-button"
+          :disabled="busy"
+          @click="emit('speaker')"
+        >
+          Play on speaker
+        </button>
+        <button v-if="items.length" type="button" class="text-button" :disabled="busy" @click="emit('clear')">
+          Clear
+        </button>
+      </div>
     </header>
 
     <ul v-if="items.length" class="list">
@@ -127,6 +139,12 @@ function onDrop(index: number): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .group h3 {

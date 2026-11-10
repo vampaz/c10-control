@@ -67,6 +67,7 @@ vi.mock('@/api', () => ({
   subscribeState: (onState: (state: unknown) => void, onStatus: (open: boolean) => void) => subscribeState(onState, onStatus),
   searchRadio: (query: string) => searchRadio(query),
   fetchTopStations: (limit: number, offset: number) => fetchTopStations(limit, offset),
+  startSpeakerQueue: () => Promise.resolve({ ok: true, tracks: 1 }),
   fetchLibrary: () => fetchLibrary(),
   fetchAlbums: () => fetchAlbums(),
   fetchQueue: () => fetchQueue(),

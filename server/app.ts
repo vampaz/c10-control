@@ -9,6 +9,7 @@ import type { QueueController } from './queue.ts'
 import type { SleepTimer } from './sleep.ts'
 import type { SpeakerPoller } from './state.ts'
 import { discoverDevices } from './discovery.ts'
+import { buildQueueContext, parseQueueContext, SPEAKER_QUEUE_NAME } from './playqueue.ts'
 
 const MAX_BODY_BYTES = 64 * 1024
 /** 1×1 transparent PNG, served when a fallback was requested for missing art. */
@@ -376,6 +377,31 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
       if (pathname === '/api/folders' && method === 'GET') {
         sendJson(response, 200, await deps.folders.listing(url.searchParams.get('path') ?? ''))
         return
+      }
+
+      if (pathname === '/api/speaker-queue') {
+        if (method === 'GET') {
+          const context = await deps.poller.browseSpeakerQueue()
+          sendJson(response, 200, { tracks: context ? parseQueueContext(context) : [] })
+          return
+        }
+        if (method === 'POST') {
+          const snapshot = deps.queue.snapshot()
+          if (!snapshot.items.length) {
+            sendJson(response, 400, { error: 'The queue is empty' })
+            return
+          }
+          const context = buildQueueContext(SPEAKER_QUEUE_NAME, snapshot.items)
+          await deps.poller.startSpeakerQueue(context, snapshot.activeIndex ?? 0)
+          deps.queue.clear()
+          sendJson(response, 200, { ok: true, tracks: snapshot.items.length })
+          return
+        }
+        if (method === 'DELETE') {
+          await deps.poller.deleteSpeakerQueue()
+          sendJson(response, 200, { ok: true })
+          return
+        }
       }
 
       if (pathname === '/api/queue') {

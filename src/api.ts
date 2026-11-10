@@ -205,6 +205,10 @@ export function moveQueue(from: number, to: number): Promise<QueueSnapshot> {
   })
 }
 
+export function startSpeakerQueue(): Promise<{ ok: boolean; tracks: number }> {
+  return request<{ ok: boolean; tracks: number }>('/api/speaker-queue', { method: 'POST' })
+}
+
 export function playQueue(index = 0): Promise<QueueSnapshot> {
   return request<QueueSnapshot>('/api/queue/play', {
     method: 'POST',

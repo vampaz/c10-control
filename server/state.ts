@@ -2,6 +2,7 @@ import { emptySpeakerState, type CommandRequest, type DeviceInfo, type PlayTarge
 import type { SpeakerDevice } from './device.ts'
 import { EMPTY_MEDIA_INFO, type MediaInfo } from './mediainfo.ts'
 import { log, warn } from './log.ts'
+import { SPEAKER_QUEUE_NAME } from './playqueue.ts'
 import { inputFromMode, modeLabel } from './status.ts'
 
 const POLL_INTERVAL_MS = 1500
@@ -236,6 +237,23 @@ export class SpeakerPoller {
       }
     }
     await this.refreshAfterCommand()
+  }
+
+  /** Creates the device-side queue, plays an index and refreshes state. */
+  async startSpeakerQueue(context: string, index: number): Promise<void> {
+    await this.device.deletePlayQueue(SPEAKER_QUEUE_NAME).catch(() => undefined)
+    await this.device.createPlayQueue(context)
+    await this.device.playPlayQueue(SPEAKER_QUEUE_NAME, index)
+    await this.refreshAfterCommand()
+  }
+
+  /** Reads the device-side queue as a PlayList document. */
+  async browseSpeakerQueue(): Promise<string> {
+    return this.device.browsePlayQueue(SPEAKER_QUEUE_NAME).catch(() => '')
+  }
+
+  async deleteSpeakerQueue(): Promise<void> {
+    await this.device.deletePlayQueue(SPEAKER_QUEUE_NAME).catch(() => undefined)
   }
 
   /** Replaces the device after the address changed in the UI. */

@@ -26,6 +26,7 @@ import {
   removePlaylistItem,
   renamePlaylist,
   searchRadio,
+  startSpeakerQueue,
   subscribeState,
 } from '@/api'
 import { titleForUrl } from '@/format'
@@ -54,6 +55,7 @@ const topStations = ref<RadioStation[]>([])
 const stationsLoading = ref(false)
 const stationsError = ref<string | null>(null)
 const stationsDone = ref(false)
+const speakerNote = ref<string | null>(null)
 const scrollArea = ref<HTMLElement | null>(null)
 const STATION_PAGE = 20
 let stationsGeneration = 0
@@ -260,6 +262,18 @@ async function moveQueued(from: number, to: number): Promise<void> {
   queueError.value = null
   try {
     queue.value = await moveQueue(from, to)
+  } catch (cause) {
+    queueError.value = message(cause)
+  }
+}
+
+async function handOffQueue(): Promise<void> {
+  queueError.value = null
+  speakerNote.value = null
+  try {
+    await startSpeakerQueue()
+    queue.value = await fetchQueue()
+    speakerNote.value = 'Playing from the speaker’s own queue. Next and previous now use the device.'
   } catch (cause) {
     queueError.value = message(cause)
   }
@@ -855,6 +869,7 @@ function meta(station: RadioStation): string {
 
       <template v-else-if="tab === 'queue'">
         <p v-if="queueError" class="error" role="alert">{{ queueError }}</p>
+        <p v-if="speakerNote" class="hint">{{ speakerNote }}</p>
         <QueuePanel
           :items="queue.items"
           :active-index="queue.activeIndex"
@@ -863,6 +878,7 @@ function meta(station: RadioStation): string {
           @play="playQueued"
           @remove="removeQueued"
           @move="moveQueued"
+          @speaker="handOffQueue"
           @clear="clearQueued"
         />
       </template>
