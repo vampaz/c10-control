@@ -362,9 +362,12 @@ body.drawer-open {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 22px;
+  height: 32px;
+  padding: 0;
   background: transparent;
   cursor: pointer;
+  /* Keep a horizontal drag on the slider instead of scrolling the page. */
+  touch-action: none;
 }
 
 .range::-webkit-slider-runnable-track {
@@ -379,9 +382,9 @@ body.drawer-open {
 
 .range::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
   border: 0;
   border-radius: 50%;
   background: var(--ink);
@@ -401,11 +404,29 @@ body.drawer-open {
 }
 
 .range::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: 0;
   border-radius: 50%;
   background: var(--ink);
+}
+
+/* Fingers need a bigger grip than a mouse. */
+@media (pointer: coarse) {
+  .range {
+    height: 44px;
+  }
+
+  .range::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+    margin-top: -9px;
+  }
+
+  .range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+  }
 }
 
 .text-button {
