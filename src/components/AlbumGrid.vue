@@ -23,7 +23,7 @@ function onError(id: string): void {
 
 function meta(album: LibraryAlbum): string {
   const tracks = `${album.trackCount} ${album.trackCount === 1 ? 'track' : 'tracks'}`
-  return `${tracks} · ${album.libraryName}`
+  return [tracks, album.artist, album.libraryName].filter(Boolean).join(' · ')
 }
 </script>
 

@@ -137,6 +137,10 @@ export interface LibraryEntry {
   modifiedAt: number
   /** URL the speaker can fetch. */
   url: string
+  /** Tags, when the file has them. */
+  artist?: string
+  album?: string
+  track?: number
 }
 
 export interface LibraryAlbum {
@@ -148,6 +152,8 @@ export interface LibraryAlbum {
   libraryId: string
   libraryName: string
   trackCount: number
+  /** Album artist from the tags, when present. */
+  artist?: string
   /** Artwork endpoint for the album's first track. */
   artworkUrl: string
 }

@@ -6,6 +6,7 @@ import { basename, dirname, extname, join, relative, resolve, sep } from 'node:p
 import type { AlbumListing, AppConfig, LibraryAlbum, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
 import { readCoverArt, type CoverArt } from './artwork.ts'
 import { detectMediaBaseUrl } from './network.ts'
+import { readTrackTags, type TrackTags } from './tags.ts'
 
 const AUDIO_EXTENSIONS = new Set([
   '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.oga', '.opus', '.wav', '.wma',
@@ -184,6 +185,7 @@ export class LibraryService {
   private readonly cache = new Map<string, { at: number; files: LibraryFile[] }>()
   private readonly albumCache = new Map<string, { at: number; entries: AlbumIndexEntry[] }>()
   private readonly artPresence = new Map<string, boolean>()
+  private readonly tagCache = new Map<string, { at: number; tags: TrackTags }>()
   private readonly scanning = new Map<string, Promise<LibraryFile[]>>()
   private readonly getConfig: () => AppConfig
   private readonly port: number
@@ -235,7 +237,12 @@ export class LibraryService {
       .sort((left, right) => left.libraryIndex - right.libraryIndex
         || left.file.path.localeCompare(right.file.path))
     const page = matching.slice(offset, offset + limit)
-    const entries = await Promise.all(page.map(({ library, file }) => this.entry(mediaBaseUrl, library, file)))
+    const entries: (LibraryEntry | null)[] = []
+    for (let index = 0; index < page.length; index += 8) {
+      entries.push(...await Promise.all(
+        page.slice(index, index + 8).map(({ library, file }) => this.entry(mediaBaseUrl, library, file)),
+      ))
+    }
 
     return {
       libraries,
@@ -286,13 +293,50 @@ export class LibraryService {
         || left.libraryName.localeCompare(right.libraryName))
     }
 
+    const firstPaths = new Map<string, string>()
+    for (const { library, files } of scanned) {
+      for (const file of files) {
+        const dir = albumDir(dirname(file.path))
+        const key = `${library.id}|${dir}`
+        if (!firstPaths.has(key)) {
+          firstPaths.set(key, file.path)
+        }
+      }
+    }
+
+    const page = albums.slice(offset, offset + limit)
+    for (let index = 0; index < page.length; index += 8) {
+      await Promise.all(page.slice(index, index + 8).map(async (album) => {
+        const first = firstPaths.get(`${album.libraryId}|${album.path}`)
+        const library = config.libraries.find((entry) => entry.id === album.libraryId)
+        if (first && library) {
+          await this.nameAlbum(album, first, library)
+        }
+      }))
+    }
+
     return {
       libraries,
-      albums: albums.slice(offset, offset + limit),
+      albums: page,
       total: albums.length,
       query,
       limit,
       offset,
+    }
+  }
+
+  /** Applies the album tag and artist to a card, once per cached entry. */
+  private async nameAlbum(album: LibraryAlbum, firstPath: string, library: LibraryRoot): Promise<void> {
+    if (album.artist) {
+      return
+    }
+    const tags = await this.tagsFor(join(library.path, firstPath))
+    if (tags.album) {
+      album.name = tags.album
+    }
+    const artist = tags.albumArtist || tags.artist
+    if (artist) {
+      album.artist = artist
     }
   }
 
@@ -568,9 +612,15 @@ export class LibraryService {
 
   private async entry(mediaBaseUrl: string, library: LibraryRoot, file: LibraryFile): Promise<LibraryEntry | null> {
     try {
-      const stats = await stat(join(library.path, file.path))
+      const filePath = join(library.path, file.path)
+      const stats = await stat(filePath)
+      const tags = await this.tagsFor(filePath)
       return {
         ...file,
+        name: tags.title || file.name,
+        artist: tags.artist,
+        album: tags.album,
+        track: tags.track,
         libraryId: library.id,
         libraryName: library.name,
         size: stats.size,
@@ -580,6 +630,23 @@ export class LibraryService {
     } catch {
       return null
     }
+  }
+
+  /** Reads tags once per file and keeps them for the cache window. */
+  private async tagsFor(file: string): Promise<TrackTags> {
+    const cached = this.tagCache.get(file)
+    if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+      return cached.tags
+    }
+    const tags = await readTrackTags(file).catch(() => ({}))
+    this.tagCache.set(file, { at: Date.now(), tags })
+    if (this.tagCache.size > 4000) {
+      const oldest = this.tagCache.keys().next().value
+      if (oldest !== undefined) {
+        this.tagCache.delete(oldest)
+      }
+    }
+    return tags
   }
 
   private async files(root: string): Promise<LibraryFile[]> {

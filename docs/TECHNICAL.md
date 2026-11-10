@@ -78,7 +78,8 @@ The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs 
 | `server/favorites.ts` | Favorite stations in `.data/favorites.json` |
 | `server/presets.ts` | Six preset slots in `.data/presets.json` |
 | `server/playlists.ts` | Named playlists in `.data/playlists.json` |
-| `server/library.ts` | Multi-folder index, safe path resolution, Range streaming, cover art and folder playback |
+| `server/library.ts` | Multi-folder index, safe path resolution, Range streaming, cover art, folder playback and tag lookup |
+| `server/tags.ts` | FLAC, ID3 and MP4 text tag reader |
 | `server/folders.ts` | Read-only directory listing for the settings folder browser |
 | `server/queue.ts` | App-side queue and auto-advance |
 | `server/sleep.ts` | Sleep timer with fade-out and volume restore |

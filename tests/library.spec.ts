@@ -41,6 +41,34 @@ function fixture(): { root: string; extra: string; outside: string; config: AppC
   }
 }
 
+function taggedMp3(title: string, artist: string, album: string): Buffer {
+  const frames = [
+    { id: 'TIT2', text: title },
+    { id: 'TPE1', text: artist },
+    { id: 'TALB', text: album },
+    { id: 'TRCK', text: '3' },
+  ].map(({ id, text }) => {
+    const value = Buffer.concat([Buffer.from([0]), Buffer.from(text, 'latin1')])
+    return Buffer.concat([
+      Buffer.from(id),
+      Buffer.from([(value.length >> 24) & 0xff, (value.length >> 16) & 0xff, (value.length >> 8) & 0xff, value.length & 0xff]),
+      Buffer.from([0, 0]),
+      value,
+    ])
+  })
+  const body = Buffer.concat(frames)
+  return Buffer.concat([
+    Buffer.from('ID3\x03\x00\x00'),
+    Buffer.from([
+      (body.length >> 21) & 0x7f,
+      (body.length >> 14) & 0x7f,
+      (body.length >> 7) & 0x7f,
+      body.length & 0x7f,
+    ]),
+    body,
+  ])
+}
+
 afterEach(() => {
   for (const server of servers.splice(0)) {
     server.close()
@@ -272,6 +300,35 @@ describe('LibraryService.artworkForPlayback', () => {
 
     expect(withArt).toBe('/api/library/art?library=main&path=Album%2Ftrack.mp3')
     expect(withoutArt).toBeNull()
+  })
+})
+
+describe('LibraryService tags', () => {
+  it('uses tags for track titles and album names', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'c10-tags-lib-'))
+    directories.push(root)
+    mkdirSync(join(root, 'Folder'))
+    writeFileSync(join(root, 'Folder', '03 - whatever.mp3'), taggedMp3('Tag Title', 'Tag Artist', 'Tag Album'))
+    const config: AppConfig = {
+      host: '192.168.1.100',
+      httpPort: 80,
+      upnpPort: 49152,
+      libraries: [{ id: 'main', name: 'Main', path: root }],
+      browseRoots: [],
+      mediaBaseUrl: 'http://192.168.1.135:5173',
+    }
+    const service = new LibraryService(() => config, 5173)
+
+    const listing = await service.listing({ libraryId: 'main' })
+    const albums = await service.albums({ libraryId: 'main' })
+
+    expect(listing.entries[0]).toMatchObject({
+      name: 'Tag Title',
+      artist: 'Tag Artist',
+      album: 'Tag Album',
+      track: 3,
+    })
+    expect(albums.albums[0]).toMatchObject({ name: 'Tag Album', artist: 'Tag Artist' })
   })
 })
 

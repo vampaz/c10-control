@@ -30,7 +30,7 @@ function size(bytes: number): string {
 }
 
 function meta(entry: LibraryEntry): string {
-  return `${entry.libraryName} · ${entry.path} · ${size(entry.size)}`
+  return [entry.artist, entry.libraryName, entry.path, size(entry.size)].filter(Boolean).join(' · ')
 }
 </script>
 
