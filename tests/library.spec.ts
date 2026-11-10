@@ -209,6 +209,30 @@ describe('LibraryService.listing with a folder', () => {
   })
 })
 
+describe('LibraryService search', () => {
+  it('matches accented names when the query has no accents', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'c10-accent-'))
+    directories.push(root)
+    mkdirSync(join(root, 'Radio Oxigénio'))
+    writeFileSync(join(root, 'Radio Oxigénio', 'Rádio Oxigénio.mp3'), 'x')
+    const config: AppConfig = {
+      host: '192.168.1.100',
+      httpPort: 80,
+      upnpPort: 49152,
+      libraries: [{ id: 'main', name: 'Main', path: root }],
+      browseRoots: [],
+      mediaBaseUrl: 'http://192.168.1.135:5173',
+    }
+    const service = new LibraryService(() => config, 5173)
+
+    const tracks = await service.listing({ query: 'oxigenio' })
+    const albums = await service.albums({ query: 'oxigenio' })
+
+    expect(tracks.entries.map((entry) => entry.name)).toEqual(['Rádio Oxigénio'])
+    expect(albums.albums.map((album) => album.name)).toEqual(['Radio Oxigénio'])
+  })
+})
+
 describe('parseRange', () => {
   it('parses common byte ranges', () => {
     expect(parseRange('bytes=0-9', 100)).toEqual({ start: 0, end: 9 })

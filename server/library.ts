@@ -3,7 +3,7 @@ import { createReadStream, realpathSync, statSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
-import type { AppConfig, AlbumListing, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
+import type { AlbumListing, AppConfig, LibraryAlbum, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
 import { readCoverArt, type CoverArt } from './artwork.ts'
 import { detectMediaBaseUrl } from './network.ts'
 
@@ -48,6 +48,17 @@ export interface ListingOptions {
   offset?: number
   /** Restricts the listing to one album folder. */
   dir?: string
+}
+
+interface AlbumIndexEntry {
+  album: LibraryAlbum
+  /** Folded album, library and track names, ready for substring search. */
+  search: string
+}
+
+/** Lowercases and strips accents, so "Oxigenio" finds "Oxigénio". */
+function fold(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
 export function isAudioFile(path: string): boolean {
@@ -149,6 +160,7 @@ async function scan(root: string): Promise<LibraryFile[]> {
 /** Indexes the configured folders and serves their files to the speaker. */
 export class LibraryService {
   private readonly cache = new Map<string, { at: number; files: LibraryFile[] }>()
+  private readonly albumCache = new Map<string, { at: number; entries: AlbumIndexEntry[] }>()
   private readonly scanning = new Map<string, Promise<LibraryFile[]>>()
   private readonly getConfig: () => AppConfig
   private readonly port: number
@@ -192,11 +204,11 @@ export class LibraryService {
       library,
       files: await this.files(library.path),
     })))
-    const needle = query.toLowerCase()
+    const needle = fold(query)
     const matching = scanned
       .flatMap(({ library, files }, libraryIndex) => files.map((file) => ({ library, libraryIndex, file })))
       .filter(({ file }) => !options.dir || dirname(file.path) === options.dir)
-      .filter(({ library, file }) => !needle || `${file.name} ${file.path} ${library.name}`.toLowerCase().includes(needle))
+      .filter(({ library, file }) => !needle || fold(`${file.name} ${file.path} ${library.name}`).includes(needle))
       .sort((left, right) => left.libraryIndex - right.libraryIndex
         || left.file.path.localeCompare(right.file.path))
     const page = matching.slice(offset, offset + limit)
@@ -221,7 +233,7 @@ export class LibraryService {
       ? libraries.filter((library) => library.id === options.libraryId)
       : libraries
     const query = (options.query ?? '').trim()
-    const needle = query.toLowerCase()
+    const needle = fold(query)
     const requestedLimit = Number(options.limit)
     const requestedOffset = Number(options.offset)
     const limit = Number.isFinite(requestedLimit)
@@ -240,40 +252,16 @@ export class LibraryService {
       files: await this.files(library.path),
     })))
 
-    const groups = new Map<string, { library: LibraryRoot; dir: string; files: LibraryFile[] }>()
-    for (const { library, files } of scanned) {
-      for (const file of files) {
-        const dir = dirname(file.path)
-        const key = `${library.id}|${dir}`
-        const group = groups.get(key)
-        if (group) {
-          group.files.push(file)
-        } else {
-          groups.set(key, { library, dir, files: [file] })
-        }
-      }
-    }
+    const entries = scanned
+      .flatMap(({ library, files }) => this.albumIndex(library, files))
+      .filter((entry) => !needle || entry.search.includes(needle))
 
-    const albums = [...groups.values()]
-      .map((group) => ({
-        group,
-        name: group.dir === '.' ? group.library.name : basename(group.dir),
-      }))
-      .filter(({ group, name }) => !needle
-        || name.toLowerCase().includes(needle)
-        || group.library.name.toLowerCase().includes(needle)
-        || group.files.some((file) => file.name.toLowerCase().includes(needle)))
-      .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' })
-        || left.group.library.name.localeCompare(right.group.library.name))
-      .map(({ group, name }) => ({
-        id: createHash('sha1').update(`${group.library.id}|${group.dir}`).digest('hex').slice(0, 12),
-        name,
-        path: group.dir,
-        libraryId: group.library.id,
-        libraryName: group.library.name,
-        trackCount: group.files.length,
-        artworkUrl: `/api/library/art?library=${encodeURIComponent(group.library.id)}&path=${encodeURIComponent(group.files[0].path)}`,
-      }))
+    // The per-library index is already sorted; only a combined view needs a merge.
+    const albums = entries.map((entry) => entry.album)
+    if (scanned.length > 1) {
+      albums.sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' })
+        || left.libraryName.localeCompare(right.libraryName))
+    }
 
     return {
       libraries,
@@ -283,6 +271,48 @@ export class LibraryService {
       limit,
       offset,
     }
+  }
+
+  /** Builds, and caches, one library's album entries for its current files. */
+  private albumIndex(library: LibraryRoot, files: LibraryFile[]): AlbumIndexEntry[] {
+    const key = `${library.id}|${library.path}`
+    const cached = this.albumCache.get(key)
+    if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+      return cached.entries
+    }
+
+    const groups = new Map<string, LibraryFile[]>()
+    for (const file of files) {
+      const dir = dirname(file.path)
+      const group = groups.get(dir)
+      if (group) {
+        group.push(file)
+      } else {
+        groups.set(dir, [file])
+      }
+    }
+
+    const entries = [...groups.entries()].map(([dir, groupFiles]) => {
+      const name = dir === '.' ? library.name : basename(dir)
+      return {
+        album: {
+          id: createHash('sha1').update(`${library.id}|${dir}`).digest('hex').slice(0, 12),
+          name,
+          path: dir,
+          libraryId: library.id,
+          libraryName: library.name,
+          trackCount: groupFiles.length,
+          artworkUrl: `/api/library/art?library=${encodeURIComponent(library.id)}&path=${encodeURIComponent(groupFiles[0].path)}`,
+        },
+        search: fold(`${name} ${library.name} ${groupFiles.map((file) => file.name).join(' ')}`),
+      }
+    })
+
+    entries.sort((left, right) => left.album.name.localeCompare(right.album.name, undefined, { numeric: true, sensitivity: 'base' })
+      || left.album.libraryName.localeCompare(right.album.libraryName))
+
+    this.albumCache.set(key, { at: Date.now(), entries })
+    return entries
   }
 
   /** Resolves a relative path to a real file inside one of the libraries. */

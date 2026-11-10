@@ -101,6 +101,35 @@ describe('SpeakerPoller.refresh', () => {
     expect(poller.current.playback.artworkUrl).toBeNull()
   })
 
+  it('refetches media when a track restarts under the same title', async () => {
+    let position = 100
+    let mediaUrl = 'http://192.168.1.135:8787/api/library/file?path=a.mp3'
+    const status = async () => playerStatus({ mode: 2, duration: 200, position, isLive: false })
+    const mediaInfo = async (): Promise<MediaInfo> => ({
+      url: mediaUrl,
+      title: 'Track 01',
+      subtitle: '',
+      artworkUrl: null,
+      isLive: false,
+    })
+    const { device, calls } = fakeDevice({ status, mediaInfo })
+    const poller = new SpeakerPoller(device)
+
+    await poller.refresh()
+    expect(calls.getMediaInfo).toHaveBeenCalledOnce()
+
+    position = 150
+    await poller.refresh()
+    expect(calls.getMediaInfo).toHaveBeenCalledOnce()
+
+    mediaUrl = 'http://192.168.1.135:8787/api/library/file?path=b.mp3'
+    position = 0
+    await poller.refresh()
+
+    expect(calls.getMediaInfo).toHaveBeenCalledTimes(2)
+    expect(poller.current.playback.url).toBe('http://192.168.1.135:8787/api/library/file?path=b.mp3')
+  })
+
   it('asks the library for artwork when the speaker reports none', async () => {
     const mediaInfo = async (): Promise<MediaInfo> => ({
       url: 'http://192.168.1.135:8787/api/library/file?library=main&path=a.flac',

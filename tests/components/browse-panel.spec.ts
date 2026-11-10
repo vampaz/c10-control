@@ -7,7 +7,8 @@ const favorites = vi.fn<() => Promise<Favorite[]>>()
 const addFavorite = vi.fn(async (_station: unknown): Promise<Favorite[]> => [])
 const removeFavorite = vi.fn(async (_id: string): Promise<Favorite[]> => [])
 const playStream = vi.fn(async (_target: unknown) => undefined)
-const playLibraryFolder = vi.fn(async (_library: string, _path: string): Promise<QueueSnapshot> => emptyQueue)
+const playLibraryFolder = vi.fn(async (_library: string, _path: string, _shuffle?: boolean): Promise<QueueSnapshot> => emptyQueue)
+const subscribeState = vi.fn((_onState: (state: unknown) => void, _onStatus: (open: boolean) => void) => () => undefined)
 const searchRadio = vi.fn(async (_query: string) => [])
 const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
   libraries: [],
@@ -54,7 +55,8 @@ vi.mock('@/api', () => ({
   addFavorite: (station: unknown) => addFavorite(station),
   removeFavorite: (id: string) => removeFavorite(id),
   playStream: (target: unknown) => playStream(target),
-  playLibraryFolder: (library: string, path: string) => playLibraryFolder(library, path),
+  playLibraryFolder: (...args: [string, string, boolean?]) => playLibraryFolder(...args),
+  subscribeState: (onState: (state: unknown) => void, onStatus: (open: boolean) => void) => subscribeState(onState, onStatus),
   searchRadio: (query: string) => searchRadio(query),
   fetchLibrary: () => fetchLibrary(),
   fetchAlbums: () => fetchAlbums(),
@@ -210,6 +212,35 @@ describe('BrowsePanel', () => {
     wrapper.unmount()
   })
 
+  it('starts the open album from the action buttons', async () => {
+    favorites.mockResolvedValue([])
+    fetchLibrary.mockResolvedValue({
+      libraries: [{ id: 'main', name: 'Main', path: '/music' }],
+      mediaBaseUrl: 'http://192.168.1.135:5173',
+      entries: [{ id: 'a', libraryId: 'main', libraryName: 'Main', name: 'Track', path: 'Album/Track.mp3', size: 10, modifiedAt: 1, url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Album%2FTrack.mp3' }],
+      total: 1,
+      query: '',
+      limit: 200,
+      offset: 0,
+    })
+    const wrapper = await mountPanel()
+
+    await wrapper.findAll('.tabs button')[1].trigger('click')
+    await flushPromises()
+    await wrapper.get('.card').trigger('click')
+    await flushPromises()
+
+    const actions = wrapper.findAll('.album-action')
+    await actions[0].trigger('click')
+    await flushPromises()
+    expect(playLibraryFolder).toHaveBeenLastCalledWith('main', 'Album/Track.mp3', false)
+
+    await actions[1].trigger('click')
+    await flushPromises()
+    expect(playLibraryFolder).toHaveBeenLastCalledWith('main', 'Album/Track.mp3', true)
+    wrapper.unmount()
+  })
+
   it('adds a library file to the queue', async () => {
     favorites.mockResolvedValue([])
     fetchLibrary.mockResolvedValue({
@@ -238,8 +269,22 @@ describe('BrowsePanel', () => {
     wrapper.unmount()
   })
 
-  it('creates a playlist from the playlists tab', async () => {
+  it('reloads the queue when the playing track changes', async () => {
     favorites.mockResolvedValue([])
+    const wrapper = await mountPanel()
+    const notify = subscribeState.mock.calls[0]?.[0] as (state: { playback: { url: string } }) => void
+    notify({ playback: { url: 'http://192.168.1.135:5173/api/library/file?library=main&path=First.mp3' } })
+    await flushPromises()
+    fetchQueue.mockClear()
+
+    notify({ playback: { url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Track.mp3' } })
+    await flushPromises()
+
+    expect(fetchQueue).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('creates a playlist from the playlists tab', async () => {    favorites.mockResolvedValue([])
     fetchPlaylists.mockResolvedValue([])
     createPlaylist.mockResolvedValue([{ id: 'p1', name: 'Mix', items: [], createdAt: 1, updatedAt: 1 }])
     const wrapper = await mountPanel()

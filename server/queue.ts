@@ -135,8 +135,13 @@ export class QueueController {
       if (this.repeat === 'all' && order.length) {
         return this.play(order[0])
       }
-      this.activeIndex = null
-      return true
+      // Auto-advance runs after the track ended; an explicit next must not
+      // clear the active item while the speaker is still playing it.
+      if (automatic) {
+        this.activeIndex = null
+        return true
+      }
+      return false
     }
     return this.play(next)
   }

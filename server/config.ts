@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import type { AppConfig, LibraryRoot } from '../shared/types.ts'
@@ -210,7 +210,10 @@ export function saveConfig(patch: ConfigPatch): AppConfig {
 
   const persisted = { ...readStoredConfig(), ...clean }
   mkdirSync(getDataDirectory(), { recursive: true })
-  writeFileSync(configPath(), `${JSON.stringify(persisted, null, 2)}\n`, 'utf8')
+  // Write beside the target and rename, so a crash cannot truncate the config.
+  const temporary = `${configPath()}.tmp`
+  writeFileSync(temporary, `${JSON.stringify(persisted, null, 2)}\n`, 'utf8')
+  renameSync(temporary, configPath())
 
   return loadConfig()
 }

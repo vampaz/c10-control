@@ -310,6 +310,34 @@ describe('play requests', () => {
       error: 'Play requests need an http or https URL',
     })
   })
+
+  it('rejects a cross-site write', async () => {
+    const deps = makeDeps()
+    const { url } = await start(deps)
+
+    const response = await fetch(`${url}/api/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Sec-Fetch-Site': 'cross-site' },
+      body: JSON.stringify({ url: 'http://example.com/stream.mp3' }),
+    })
+
+    expect(response.status).toBe(403)
+    expect(deps.poller.playTarget).not.toHaveBeenCalled()
+  })
+
+  it('rejects a body that is not declared as JSON', async () => {
+    const deps = makeDeps()
+    const { url } = await start(deps)
+
+    const response = await fetch(`${url}/api/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ url: 'http://example.com/stream.mp3' }),
+    })
+
+    expect(response.status).toBe(400)
+    expect(deps.poller.playTarget).not.toHaveBeenCalled()
+  })
 })
 
 describe('radio search', () => {
@@ -748,8 +776,32 @@ describe('library playback', () => {
     expect(replace).toHaveBeenCalledWith(targets, 0)
   })
 
-  it('answers 404 when the track is outside a library', async () => {
-    const library = { folderTargets: vi.fn(async () => null) } as unknown as LibraryService
+  it('starts an album shuffled from a random track', async () => {
+    const targets = [
+      { url: 'http://192.168.1.135:8787/api/library/file?library=main&path=a.mp3', title: 'A', isLive: false },
+      { url: 'http://192.168.1.135:8787/api/library/file?library=main&path=b.mp3', title: 'B', isLive: false },
+    ]
+    const folderTargets = vi.fn(async () => ({ targets, index: 0 }))
+    const replace = vi.fn(async () => ({ items: [], activeIndex: 0 }))
+    const setMode = vi.fn(() => ({ items: [], activeIndex: null, repeat: 'off', shuffle: true }))
+    const library = { folderTargets } as unknown as LibraryService
+    const queue = { replace, setMode } as unknown as QueueController
+    const { url } = await start(makeDeps({ library, queue }))
+
+    const response = await fetch(`${url}/api/library/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ library: 'main', path: 'album/a.mp3', shuffle: true }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(setMode).toHaveBeenCalledWith({ shuffle: true })
+    const index = (replace.mock.calls[0] as unknown as [unknown, number])[1]
+    expect(index).toBeGreaterThanOrEqual(0)
+    expect(index).toBeLessThan(targets.length)
+  })
+
+  it('answers 404 when the track is outside a library', async () => {    const library = { folderTargets: vi.fn(async () => null) } as unknown as LibraryService
     const { url } = await start(makeDeps({ library }))
     const response = await fetch(`${url}/api/library/play`, {
       method: 'POST',

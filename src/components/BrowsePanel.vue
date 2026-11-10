@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { AlbumListing, Favorite, LibraryAlbum, LibraryEntry, LibraryListing, Playlist, QueueSnapshot, RadioStation } from '@shared/types'
 import {
   addCurrentToPlaylist,
@@ -22,6 +22,7 @@ import {
   removePlaylistItem,
   renamePlaylist,
   searchRadio,
+  subscribeState,
 } from '@/api'
 import { titleForUrl } from '@/format'
 import AppIcon from '@/components/AppIcon.vue'
@@ -70,6 +71,8 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 let libraryTimer: ReturnType<typeof setTimeout> | null = null
 let libraryGeneration = 0
 let albumGeneration = 0
+let unsubscribeState: (() => void) | null = null
+let lastPlayingUrl = ''
 
 const libraryLibraries = computed(() => albums.value.libraries.length
   ? albums.value.libraries
@@ -85,6 +88,24 @@ onMounted(async () => {
   void loadAlbums()
   void loadQueue()
   void loadPlaylists()
+
+  // Auto-advance changes the queue on the server, so follow track changes.
+  unsubscribeState = subscribeState(
+    (state) => {
+      if (state.playback.url !== lastPlayingUrl) {
+        const first = lastPlayingUrl === ''
+        lastPlayingUrl = state.playback.url
+        if (!first) {
+          void loadQueue()
+        }
+      }
+    },
+    () => undefined,
+  )
+})
+
+onBeforeUnmount(() => {
+  unsubscribeState?.()
 })
 
 async function loadPlaylists(): Promise<void> {
@@ -415,6 +436,24 @@ async function playLibrary(entry: LibraryEntry): Promise<void> {
   }
 }
 
+/** Starts the open album from its first track, optionally shuffled. */
+async function playAlbum(shuffle: boolean): Promise<void> {
+  const album = selectedAlbum.value
+  const first = library.value.entries[0]
+  if (!album || !first) {
+    return
+  }
+  busyUrl.value = first.url
+  error.value = null
+  try {
+    queue.value = await playLibraryFolder(album.libraryId, first.path, shuffle)
+  } catch (cause) {
+    error.value = message(cause)
+  } finally {
+    busyUrl.value = null
+  }
+}
+
 async function playCustom(): Promise<void> {
   const url = customUrl.value.trim()
   if (!url) {
@@ -573,10 +612,30 @@ function meta(station: RadioStation): string {
         </p>
 
         <template v-else-if="selectedAlbum">
-          <button type="button" class="album-back" @click="closeAlbum">
-            <AppIcon name="previous" :size="13" />
-            Albums
-          </button>
+          <div class="album-head">
+            <button type="button" class="album-back" @click="closeAlbum">
+              <AppIcon name="previous" :size="13" />
+              Albums
+            </button>
+            <div class="album-actions">
+              <button
+                type="button"
+                class="album-action"
+                :disabled="!library.entries.length || busyUrl !== null"
+                @click="playAlbum(false)"
+              >
+                Play
+              </button>
+              <button
+                type="button"
+                class="album-action"
+                :disabled="!library.entries.length || busyUrl !== null"
+                @click="playAlbum(true)"
+              >
+                Shuffle
+              </button>
+            </div>
+          </div>
           <p class="album-title">{{ selectedAlbum.name }}</p>
           <p v-if="libraryError" class="error" role="alert">{{ libraryError }}</p>
           <p v-else-if="libraryLoading && !library.entries.length" class="hint">Reading the album…</p>
@@ -755,11 +814,18 @@ function meta(station: RadioStation): string {
   font-size: 0.8rem;
 }
 
+.album-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 20px 8px;
+}
+
 .album-back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 0 20px 8px;
   padding: 0;
   border: 0;
   background: none;
@@ -771,6 +837,33 @@ function meta(station: RadioStation): string {
 
 .album-back:hover {
   color: var(--accent-strong);
+}
+
+.album-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.album-action {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.album-action:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.album-action:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .album-title {

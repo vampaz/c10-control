@@ -6,6 +6,8 @@ import { inputFromMode, modeLabel } from './status.ts'
 const POLL_INTERVAL_MS = 1500
 const INFO_REFRESH_MS = 60_000
 const MEDIA_REFRESH_MS = 60_000
+/** A position this far behind the previous poll means a new track started. */
+const RESTART_TOLERANCE_SECONDS = 2
 const MISSES_BEFORE_OFFLINE = 2
 
 type Listener = (state: SpeakerState) => void
@@ -28,6 +30,7 @@ export class SpeakerPoller {
   private media: MediaInfo = EMPTY_MEDIA_INFO
   private mediaKey = ''
   private mediaFetchedAt = 0
+  private lastPosition = 0
   private lastEmitted = ''
   private refreshing: Promise<void> | null = null
   private device: SpeakerDevice
@@ -89,7 +92,12 @@ export class SpeakerPoller {
         this.info = await this.device.getDeviceInfo().catch(() => this.info)
       }
 
-      await this.refreshMedia(status.mode, status.title)
+      await this.refreshMedia(
+        status.mode,
+        status.title,
+        status.position < this.lastPosition - RESTART_TOLERANCE_SECONDS,
+      )
+      this.lastPosition = status.position
 
       // Local files report `status: none`; UPnP knows whether they play or pause.
       const playbackStatus = status.duration > 0
@@ -138,8 +146,12 @@ export class SpeakerPoller {
    * the track identity changes and once a minute otherwise. A failure here must
    * not take the speaker offline.
    */
-  private async refreshMedia(mode: number, title: string): Promise<void> {
+  private async refreshMedia(mode: number, title: string, restarted = false): Promise<void> {
     const key = `${mode}|${title}`
+    if (restarted) {
+      // Same title, new track: the media description belongs to the old one.
+      this.mediaKey = ''
+    }
     if (key === this.mediaKey && Date.now() - this.mediaFetchedAt < MEDIA_REFRESH_MS) {
       return
     }
@@ -208,6 +220,7 @@ export class SpeakerPoller {
     this.media = EMPTY_MEDIA_INFO
     this.mediaKey = ''
     this.mediaFetchedAt = 0
+    this.lastPosition = 0
     this.misses = 0
     this.lastEmitted = ''
     void this.refresh()

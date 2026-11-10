@@ -56,6 +56,10 @@ async function readJsonBody(request: IncomingMessage): Promise<unknown> {
   if (size === 0) {
     return {}
   }
+  const type = request.headers['content-type']
+  if (!type || !type.toLowerCase().startsWith('application/json')) {
+    throw new Error('Requests with a body must use application/json')
+  }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 
@@ -149,6 +153,14 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
     const method = request.method ?? 'GET'
 
     try {
+      if (method !== 'GET' && method !== 'HEAD') {
+        const site = request.headers['sec-fetch-site']
+        if (typeof site === 'string' && site !== 'same-origin' && site !== 'none') {
+          sendJson(response, 403, { error: 'Cross-site requests are not allowed' })
+          return
+        }
+      }
+
       if (pathname === '/api/health') {
         sendJson(response, 200, { ok: true })
         return
@@ -309,6 +321,9 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
       if (pathname === '/api/library/play' && method === 'POST') {
         const body = await readJsonBody(request)
         const patch = typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}
+        if (patch.shuffle !== undefined && typeof patch.shuffle !== 'boolean') {
+          throw new Error('Shuffle must be a boolean')
+        }
         const folder = await deps.library.folderTargets(
           String(patch.library ?? ''),
           String(patch.path ?? ''),
@@ -317,7 +332,13 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
           sendJson(response, 404, { error: 'Track not found' })
           return
         }
-        sendJson(response, 200, await deps.queue.replace(folder.targets, folder.index))
+        if (typeof patch.shuffle === 'boolean') {
+          deps.queue.setMode({ shuffle: patch.shuffle })
+        }
+        const random = patch.shuffle === true && folder.targets.length > 0
+          ? Math.floor(Math.random() * folder.targets.length)
+          : folder.index
+        sendJson(response, 200, await deps.queue.replace(folder.targets, random))
         return
       }
 

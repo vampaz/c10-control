@@ -49,10 +49,14 @@ export async function playStream(target: PlayTarget): Promise<SpeakerState> {
 }
 
 /** Plays a library file with the rest of its folder queued behind it. */
-export function playLibraryFolder(libraryId: string, path: string): Promise<QueueSnapshot> {
+export function playLibraryFolder(libraryId: string, path: string, shuffle?: boolean): Promise<QueueSnapshot> {
+  const body: Record<string, unknown> = { library: libraryId, path }
+  if (shuffle !== undefined) {
+    body.shuffle = shuffle
+  }
   return request<QueueSnapshot>('/api/library/play', {
     method: 'POST',
-    body: JSON.stringify({ library: libraryId, path }),
+    body: JSON.stringify(body),
   })
 }
 

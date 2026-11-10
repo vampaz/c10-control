@@ -77,14 +77,14 @@ describe('QueueController', () => {
     expect(played.at(-1)?.title).toBe('First')
   })
 
-  it('stops at the end of the queue', async () => {
+  it('leaves the last track active for an explicit next', async () => {
     const { queue, played } = player()
     queue.add(FIRST)
     await queue.play(0)
 
-    expect(await queue.next()).toBe(true)
+    expect(await queue.next()).toBe(false)
     expect(played).toHaveLength(1)
-    expect(queue.snapshot().activeIndex).toBeNull()
+    expect(queue.snapshot().activeIndex).toBe(0)
   })
 
   it('replaces the queue and plays the first track', async () => {
@@ -161,8 +161,20 @@ describe('QueueController', () => {
     expect(new Set(visited).size).toBe(4)
   })
 
-  it('restarts the first track on previous, and wraps with repeat all', async () => {
+  it('leaves the last track active for an explicit next but ends it automatically', async () => {
     const { queue, played } = player()
+    await queue.replace([FIRST, SECOND])
+    await queue.next()
+
+    expect(await queue.next()).toBe(false)
+    expect(queue.snapshot().activeIndex).toBe(1)
+    expect(played).toHaveLength(2)
+
+    expect(await queue.next(true)).toBe(true)
+    expect(queue.snapshot().activeIndex).toBeNull()
+  })
+
+  it('restarts the first track on previous, and wraps with repeat all', async () => {    const { queue, played } = player()
     await queue.replace([FIRST, SECOND])
 
     await queue.previous()
