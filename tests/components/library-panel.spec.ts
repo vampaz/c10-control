@@ -19,6 +19,7 @@ function mountPanel(overrides: Partial<{
   entries: LibraryEntry[]
   total: number
   mediaBaseUrl: string
+  playingUrl: string
   query: string
   busy: boolean
   loading: boolean
@@ -28,6 +29,7 @@ function mountPanel(overrides: Partial<{
       entries: [ENTRY],
       total: 1,
       mediaBaseUrl: 'http://192.168.1.135:5173',
+      playingUrl: '',
       query: '',
       busy: false,
       loading: false,
@@ -58,6 +60,15 @@ describe('LibraryPanel', () => {
     const wrapper = mountPanel({ mediaBaseUrl: 'http://localhost:5173' })
 
     expect(wrapper.text()).toContain('cannot reach')
+    wrapper.unmount()
+  })
+
+  it('marks the playing track', () => {
+    const wrapper = mountPanel({ playingUrl: ENTRY.url })
+
+    expect(wrapper.get('.row').classes()).toContain('playing')
+    expect(wrapper.find('.playing-mark').exists()).toBe(true)
+    expect(wrapper.get('.row-main').attributes('aria-current')).toBe('true')
     wrapper.unmount()
   })
 

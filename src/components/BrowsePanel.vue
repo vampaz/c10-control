@@ -80,6 +80,7 @@ let libraryGeneration = 0
 let albumGeneration = 0
 let unsubscribeState: (() => void) | null = null
 let lastPlayingUrl = ''
+const playingUrl = ref('')
 
 const libraryLibraries = computed(() => albums.value.libraries.length
   ? albums.value.libraries
@@ -100,6 +101,7 @@ onMounted(async () => {
   // Auto-advance changes the queue on the server, so follow track changes.
   unsubscribeState = subscribeState(
     (state) => {
+      playingUrl.value = state.playback.url
       if (state.playback.url !== lastPlayingUrl) {
         const first = lastPlayingUrl === ''
         lastPlayingUrl = state.playback.url
@@ -703,6 +705,7 @@ function meta(station: RadioStation): string {
             :entries="library.entries"
             :total="library.total"
             :media-base-url="library.mediaBaseUrl"
+            :playing-url="playingUrl"
             :query="query"
             :busy="busyUrl !== null"
             :loading="libraryLoading"
@@ -729,6 +732,7 @@ function meta(station: RadioStation): string {
               :entries="library.entries"
               :total="library.total"
               :media-base-url="library.mediaBaseUrl"
+              :playing-url="playingUrl"
               :query="query"
               :busy="busyUrl !== null"
               :loading="libraryLoading"
@@ -1125,12 +1129,14 @@ function meta(station: RadioStation): string {
   outline-offset: 1px;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 900px) {
   .drawer {
     width: 100%;
     border-left: 0;
   }
+}
 
+@media (max-width: 520px) {
   .drawer-head .icon-button {
     width: 44px;
     height: 44px;

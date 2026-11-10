@@ -539,6 +539,7 @@ export class LibraryService {
       url: `${mediaBaseUrl}/api/library/file?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}`,
       title: basename(path, extname(path)),
       isLive: false,
+      artworkUrl: `/api/library/art?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}&w=96&fallback=1`,
     }))
   }
 

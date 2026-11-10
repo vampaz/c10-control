@@ -11,6 +11,11 @@ import type { SpeakerPoller } from './state.ts'
 import { discoverDevices } from './discovery.ts'
 
 const MAX_BODY_BYTES = 64 * 1024
+/** 1×1 transparent PNG, served when a fallback was requested for missing art. */
+const BLANK_IMAGE = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+)
 const COMMAND_TYPES: CommandType[] = [
   'play', 'pause', 'toggle', 'next', 'previous', 'stop', 'seek', 'volume', 'mute', 'input',
 ]
@@ -308,6 +313,15 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
           ? await deps.library.thumbnail(library, path, width)
           : await deps.library.artwork(library, path)
         if (!art) {
+          if (url.searchParams.get('fallback') === '1') {
+            response.writeHead(200, {
+              'Content-Type': 'image/png',
+              'Content-Length': BLANK_IMAGE.length,
+              'Cache-Control': 'public, max-age=86400',
+            })
+            response.end(method === 'HEAD' ? undefined : BLANK_IMAGE)
+            return
+          }
           sendJson(response, 404, { error: 'Artwork not found' })
           return
         }

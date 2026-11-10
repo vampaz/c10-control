@@ -57,6 +57,14 @@ describe('QueuePanel', () => {
     wrapper.unmount()
   })
 
+  it('shows cover art when a queued item has one', () => {
+    const wrapper = mountPanel([{ ...ITEMS[0], artworkUrl: '/api/library/art?library=main&path=a.mp3&w=96&fallback=1' }])
+
+    expect(wrapper.get('.row-art img').attributes('src')).toContain('/api/library/art')
+
+    wrapper.unmount()
+  })
+
   it('moves a track with the touch buttons', async () => {
     const wrapper = mountPanel()
     const buttons = wrapper.findAll('.row-move')

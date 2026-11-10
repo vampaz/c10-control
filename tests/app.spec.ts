@@ -769,6 +769,16 @@ describe('library artwork', () => {
     expect(thumbnail).toHaveBeenCalledWith('main', 'a.mp3', 320)
   })
 
+  it('answers with a blank image when fallback is requested and art is missing', async () => {
+    const library = { artwork: vi.fn(async () => null) } as unknown as LibraryService
+    const { url } = await start(makeDeps({ library }))
+
+    const response = await fetch(`${url}/api/library/art?library=main&path=a.mp3&fallback=1`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('image/png')
+  })
+
   it('answers 404 when a file has no art', async () => {
     const library = { artwork: vi.fn(async () => null) } as unknown as LibraryService
     const { url } = await start(makeDeps({ library }))

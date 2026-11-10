@@ -28,7 +28,7 @@ function display(value: string): string {
       <span v-else :class="{ offline: !online }">{{ stateLabel }}</span>
     </p>
 
-    <h1 class="title">{{ hasTrack ? playback.title : 'Nothing playing' }}</h1>
+    <h1 class="title" aria-live="polite">{{ hasTrack ? playback.title : 'Nothing playing' }}</h1>
 
     <p v-if="display(playback.artist)" class="artist">{{ display(playback.artist) }}</p>
     <p v-if="display(playback.album)" class="album">{{ display(playback.album) }}</p>

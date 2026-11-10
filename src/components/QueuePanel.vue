@@ -78,8 +78,13 @@ function onDrop(index: number): void {
           :aria-label="`Play ${row.item.title ?? row.item.url}`"
           @click="emit('play', row.index)"
         >
-          <span class="row-name">{{ row.item.title ?? row.item.url }}</span>
-          <span class="row-meta">{{ meta(row.item) }}</span>
+          <span v-if="row.item.artworkUrl" class="row-art" aria-hidden="true">
+            <img :src="row.item.artworkUrl" alt="" loading="lazy" />
+          </span>
+          <span class="row-text">
+            <span class="row-name">{{ row.item.title ?? row.item.url }}</span>
+            <span class="row-meta">{{ meta(row.item) }}</span>
+          </span>
         </button>
         <button
           v-if="canReorder"
@@ -165,14 +170,37 @@ function onDrop(index: number): void {
 .row-main {
   flex: 1;
   min-width: 0;
-  display: grid;
-  gap: 2px;
-  padding: 9px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
   border: 0;
   border-radius: 10px;
   background: none;
   text-align: left;
   cursor: pointer;
+}
+
+.row-art {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-art);
+  box-shadow: inset 0 0 0 1px var(--line-inset);
+}
+
+.row-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .row-main:disabled {

@@ -7,6 +7,7 @@ const props = defineProps<{
   entries: LibraryEntry[]
   total: number
   mediaBaseUrl: string
+  playingUrl: string
   query: string
   busy: boolean
   loading: boolean
@@ -45,16 +46,24 @@ function meta(entry: LibraryEntry): string {
     </p>
 
     <ul v-if="entries.length" class="list">
-      <li v-for="entry in entries" :key="entry.id" class="row">
+      <li v-for="entry in entries" :key="entry.id" class="row" :class="{ playing: entry.url === playingUrl }">
         <button
           type="button"
           class="row-main"
           :disabled="busy"
+          :aria-current="entry.url === playingUrl ? 'true' : undefined"
           :aria-label="`Play ${entry.name}`"
           @click="emit('play', entry)"
         >
-          <span class="row-name">{{ entry.name }}</span>
-          <span class="row-meta">{{ meta(entry) }}</span>
+          <span class="row-text">
+            <span class="row-name">
+              <span v-if="entry.url === playingUrl" class="playing-mark" aria-hidden="true">
+                <i /><i /><i />
+              </span>
+              {{ entry.name }}
+            </span>
+            <span class="row-meta">{{ meta(entry) }}</span>
+          </span>
         </button>
         <button
           type="button"
@@ -158,12 +167,69 @@ function meta(entry: LibraryEntry): string {
   opacity: 0.6;
 }
 
+.row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .row-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   overflow: hidden;
   font-size: 0.92rem;
   color: var(--ink);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.row.playing .row-name {
+  color: var(--accent);
+}
+
+.playing-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.playing-mark i {
+  width: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: playing-bars 900ms ease-in-out infinite alternate;
+}
+
+.playing-mark i:nth-child(1) {
+  height: 5px;
+}
+
+.playing-mark i:nth-child(2) {
+  height: 11px;
+  animation-delay: 150ms;
+}
+
+.playing-mark i:nth-child(3) {
+  height: 7px;
+  animation-delay: 300ms;
+}
+
+@keyframes playing-bars {
+  from {
+    transform: scaleY(0.45);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playing-mark i {
+    animation: none;
+  }
 }
 
 .row-meta {
