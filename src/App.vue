@@ -21,7 +21,11 @@ const { state, stream, busy, commandError, online, playing, run, play } = useSpe
 const config = ref<AppConfig>({ host: '', httpPort: 80, upnpPort: 49152, libraries: [], browseRoots: [], mediaBaseUrl: '' })
 const settingsOpen = ref(false)
 const settingsButton = ref<HTMLButtonElement | null>(null)
-const browseOpen = ref(false)
+const browseOpen = ref(new URLSearchParams(window.location.search).get('browse') === '1')
+const browseStartTab = ((): 'radio' | 'library' | 'queue' | 'playlists' => {
+  const value = new URLSearchParams(window.location.search).get('tab')
+  return value === 'library' || value === 'queue' || value === 'playlists' ? value : 'radio'
+})()
 const browseButton = ref<HTMLButtonElement | null>(null)
 const presets = ref<(PlayTarget | null)[]>(Array.from({ length: 6 }, () => null))
 const presetError = ref<string | null>(null)
@@ -316,6 +320,6 @@ function onKeydown(event: KeyboardEvent): void {
       @saved="onSaved"
     />
 
-    <BrowsePanel v-if="browseOpen" @close="closeBrowse" />
+    <BrowsePanel v-if="browseOpen" :initial-tab="browseStartTab" @close="closeBrowse" />
   </div>
 </template>

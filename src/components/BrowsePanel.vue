@@ -34,9 +34,13 @@ import LibraryPanel from '@/components/LibraryPanel.vue'
 import PlaylistsPanel from '@/components/PlaylistsPanel.vue'
 import QueuePanel from '@/components/QueuePanel.vue'
 
+type BrowseTab = 'radio' | 'library' | 'queue' | 'playlists'
+
+const props = withDefaults(defineProps<{ initialTab?: BrowseTab }>(), { initialTab: 'radio' })
+
 const emit = defineEmits<{ close: [] }>()
 
-const tab = ref<'radio' | 'library' | 'queue' | 'playlists'>('radio')
+const tab = ref<BrowseTab>(props.initialTab)
 const favorites = ref<Favorite[]>([])
 const results = ref<RadioStation[]>([])
 const query = ref('')
@@ -83,6 +87,7 @@ const libraryLibraries = computed(() => albums.value.libraries.length
 
 onMounted(async () => {
   drawer.value?.focus()
+  document.body.classList.add('drawer-open')
   try {
     favorites.value = await listFavorites()
   } catch (cause) {
@@ -108,8 +113,37 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.body.classList.remove('drawer-open')
   unsubscribeState?.()
 })
+
+let touchStartX = 0
+let touchStartY = 0
+
+function onTouchStart(event: TouchEvent): void {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('input, textarea, select')) {
+    touchStartX = 0
+    return
+  }
+  const touch = event.touches[0]
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
+}
+
+function onTouchEnd(event: TouchEvent): void {
+  if (touchStartX === 0) {
+    return
+  }
+  const touch = event.changedTouches[0]
+  const dx = touch.clientX - touchStartX
+  const dy = touch.clientY - touchStartY
+  touchStartX = 0
+  // A right swipe closes the full-screen drawer on a phone.
+  if (dx > 90 && Math.abs(dy) < 60) {
+    emit('close')
+  }
+}
 
 async function loadPlaylists(): Promise<void> {
   try {
@@ -343,7 +377,7 @@ function onLibrarySelect(event: Event): void {
   setLibrary((event.target as HTMLSelectElement).value)
 }
 
-function setTab(next: 'radio' | 'library' | 'queue' | 'playlists'): void {
+function setTab(next: BrowseTab): void {
   tab.value = next
   query.value = ''
   error.value = null
@@ -505,6 +539,8 @@ function meta(station: RadioStation): string {
     aria-labelledby="browse-title"
     tabindex="-1"
     @keydown.esc="emit('close')"
+    @touchstart.passive="onTouchStart"
+    @touchend="onTouchEnd"
   >
     <header class="drawer-head">
       <h2 id="browse-title">Browse</h2>
@@ -766,20 +802,24 @@ function meta(station: RadioStation): string {
   flex-direction: column;
   width: min(480px, 100%);
   height: 100%;
+  /* Standalone phones draw under the status bar and home bar. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   border-left: 1px solid var(--line);
   background: var(--surface);
   box-shadow: -40px 0 80px -40px var(--shadow);
   animation: slide-in 220ms ease-out;
+  overscroll-behavior: contain;
 }
 
 @keyframes slide-in {
   from {
     transform: translateX(16px);
-    opacity: 0;
   }
   to {
     transform: none;
-    opacity: 1;
   }
 }
 
@@ -950,6 +990,7 @@ function meta(station: RadioStation): string {
 .scroll {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 20px 16px;
 }
 
@@ -1088,7 +1129,11 @@ function meta(station: RadioStation): string {
   .drawer {
     width: 100%;
     border-left: 0;
-    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .drawer-head .icon-button {
+    width: 44px;
+    height: 44px;
   }
 }
 

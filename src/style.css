@@ -92,6 +92,10 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+body.drawer-open {
+  overflow: hidden;
+}
+
 .app {
   width: min(1120px, 100%);
   margin-inline: auto;

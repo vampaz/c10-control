@@ -57,6 +57,23 @@ describe('QueuePanel', () => {
     wrapper.unmount()
   })
 
+  it('moves a track with the touch buttons', async () => {
+    const wrapper = mountPanel()
+    const buttons = wrapper.findAll('.row-move')
+
+    await buttons[1].trigger('click')
+
+    expect(wrapper.emitted('move')).toEqual([[0, 1]])
+    wrapper.unmount()
+  })
+
+  it('hides manual moves while the order is shuffled', () => {
+    const wrapper = mountPanel(ITEMS, 0, [1, 0])
+
+    expect(wrapper.findAll('.row-move')).toHaveLength(0)
+    wrapper.unmount()
+  })
+
   it('removes a track', async () => {
     const wrapper = mountPanel()
 

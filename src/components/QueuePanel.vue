@@ -30,6 +30,9 @@ const rows = computed(() => {
   })
 })
 
+/** Touch and shuffle: manual moves only make sense in identity order. */
+const canReorder = computed(() => rows.value.every((row, position) => row.index === position))
+
 function meta(item: QueueItem): string {
   return item.isLive === false ? 'Track' : 'Live stream'
 }
@@ -61,7 +64,7 @@ function onDrop(index: number): void {
         :key="row.item.id"
         class="row"
         :class="{ active: row.index === activeIndex, dragging: dragging === row.index }"
-        draggable="true"
+        :draggable="canReorder"
         @dragstart="onDragStart(row.index)"
         @dragover.prevent
         @drop="onDrop(row.index)"
@@ -77,6 +80,26 @@ function onDrop(index: number): void {
         >
           <span class="row-name">{{ row.item.title ?? row.item.url }}</span>
           <span class="row-meta">{{ meta(row.item) }}</span>
+        </button>
+        <button
+          v-if="canReorder"
+          type="button"
+          class="row-move"
+          :disabled="busy || row.index === 0"
+          :aria-label="`Move ${row.item.title ?? row.item.url} up`"
+          @click="emit('move', row.index, row.index - 1)"
+        >
+          ↑
+        </button>
+        <button
+          v-if="canReorder"
+          type="button"
+          class="row-move"
+          :disabled="busy || row.index === items.length - 1"
+          :aria-label="`Move ${row.item.title ?? row.item.url} down`"
+          @click="emit('move', row.index, row.index + 1)"
+        >
+          ↓
         </button>
         <button
           type="button"
@@ -189,6 +212,46 @@ function onDrop(index: number): void {
 
 .row-remove:hover {
   color: var(--ink);
+}
+
+.row-move {
+  display: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.row-move:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.row-move:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* HTML5 drag does not work on touch; show buttons instead. */
+@media (hover: none), (max-width: 860px) {
+  .row-move {
+    display: grid;
+  }
+
+  .row-move,
+  .row-remove {
+    width: 38px;
+    height: 38px;
+  }
+
+  .row {
+    cursor: default;
+  }
 }
 
 .hint {
