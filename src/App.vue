@@ -45,10 +45,14 @@ async function refreshQueue(): Promise<void> {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
-  config.value = await fetchConfig().catch(() => config.value)
+  const [nextConfig, nextPresets] = await Promise.all([
+    fetchConfig().catch(() => config.value),
+    listPresets().catch(() => presets.value),
+    refreshQueue(),
+  ])
+  config.value = nextConfig
   configLoaded.value = true
-  presets.value = await listPresets().catch(() => presets.value)
-  await refreshQueue()
+  presets.value = nextPresets
 })
 
 // Auto-advance changes the queue on the server, so follow track changes.

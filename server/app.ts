@@ -8,6 +8,7 @@ import type { PresetStore } from './presets.ts'
 import type { QueueController } from './queue.ts'
 import type { SleepTimer } from './sleep.ts'
 import type { SpeakerPoller } from './state.ts'
+import { gzipSync } from 'node:zlib'
 import { discoverDevices } from './discovery.ts'
 import { buildQueueContext, parseQueueContext, SPEAKER_QUEUE_NAME } from './playqueue.ts'
 
@@ -39,6 +40,20 @@ export interface AppDependencies {
 
 function sendJson(response: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
+  const acceptEncoding = response.req.headers['accept-encoding']
+  const offersGzip = typeof acceptEncoding === 'string' && acceptEncoding.includes('gzip')
+  if (offersGzip && Buffer.byteLength(payload) > 1024) {
+    const compressed = gzipSync(Buffer.from(payload))
+    response.writeHead(status, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Length': compressed.byteLength,
+      'Content-Encoding': 'gzip',
+      'Cache-Control': 'no-store',
+      'Vary': 'Accept-Encoding',
+    })
+    response.end(compressed)
+    return
+  }
   response.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(payload),

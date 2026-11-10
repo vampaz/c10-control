@@ -299,7 +299,8 @@ export class SpeakerPoller {
   }
 
   private emit(): void {
-    const serialised = JSON.stringify(this.state)
+    // `updatedAt` ticks every poll; it must not trigger a client render by itself.
+    const serialised = JSON.stringify({ ...this.state, updatedAt: 0 })
     if (serialised === this.lastEmitted) {
       return
     }

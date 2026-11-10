@@ -268,13 +268,53 @@ export function playPlaylist(id: string): Promise<QueueSnapshot> {
   return request<QueueSnapshot>(`/api/playlists/${encodeURIComponent(id)}/play`, { method: 'POST' })
 }
 
+const stateListeners = new Set<(state: SpeakerState) => void>()
+const statusListeners = new Set<(open: boolean) => void>()
+let eventSource: EventSource | null = null
+let lastState: SpeakerState | null = null
+
+function ensureEventSource(): EventSource {
+  if (!eventSource) {
+    eventSource = new EventSource('/api/events')
+    eventSource.onopen = () => {
+      for (const listener of statusListeners) {
+        listener(true)
+      }
+    }
+    eventSource.onerror = () => {
+      for (const listener of statusListeners) {
+        listener(false)
+      }
+    }
+    eventSource.onmessage = (event) => {
+      const next = JSON.parse(event.data) as SpeakerState
+      lastState = next
+      for (const listener of stateListeners) {
+        listener(next)
+      }
+    }
+  }
+  return eventSource
+}
+
 export function subscribeState(onState: (state: SpeakerState) => void, onStatus: (open: boolean) => void): () => void {
-  const source = new EventSource('/api/events')
-  source.onopen = () => onStatus(true)
-  source.onerror = () => onStatus(false)
-  source.onmessage = (event) => {
-    onState(JSON.parse(event.data) as SpeakerState)
+  stateListeners.add(onState)
+  statusListeners.add(onStatus)
+  const source = ensureEventSource()
+  if (lastState) {
+    onState(lastState)
+  }
+  if (source.readyState === EventSource.OPEN) {
+    onStatus(true)
   }
 
-  return () => source.close()
+  return () => {
+    stateListeners.delete(onState)
+    statusListeners.delete(onStatus)
+    if (stateListeners.size === 0 && statusListeners.size === 0) {
+      source.close()
+      eventSource = null
+      lastState = null
+    }
+  }
 }
