@@ -27,6 +27,7 @@ const ALBUM = {
   id: 'al',
   name: 'Album',
   path: 'Album',
+  dirs: ['Album'],
   libraryId: 'main',
   libraryName: 'Main',
   trackCount: 1,
@@ -239,11 +240,11 @@ describe('BrowsePanel', () => {
     const actions = wrapper.findAll('.album-action')
     await actions[0].trigger('click')
     await flushPromises()
-    expect(playLibraryAlbum).toHaveBeenLastCalledWith('main', 'Album', false)
+    expect(playLibraryAlbum).toHaveBeenLastCalledWith('main', ['Album'], false)
 
     await actions[1].trigger('click')
     await flushPromises()
-    expect(playLibraryAlbum).toHaveBeenLastCalledWith('main', 'Album', true)
+    expect(playLibraryAlbum).toHaveBeenLastCalledWith('main', ['Album'], true)
     wrapper.unmount()
   })
 

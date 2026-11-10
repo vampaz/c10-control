@@ -810,15 +810,16 @@ describe('library playback', () => {
     const response = await fetch(`${url}/api/library/play`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ library: 'main', dir: 'Release' }),
+      body: JSON.stringify({ library: 'main', dirs: ['Release'] }),
     })
 
     expect(response.status).toBe(200)
-    expect(albumTargets).toHaveBeenCalledWith('main', 'Release')
+    expect(albumTargets).toHaveBeenCalledWith('main', ['Release'])
     expect(replace).toHaveBeenCalledWith(targets, 0)
   })
 
-  it('starts an album shuffled from a random track', async () => {    const targets = [
+  it('starts an album shuffled from a random track', async () => {
+    const targets = [
       { url: 'http://192.168.1.135:8787/api/library/file?library=main&path=a.mp3', title: 'A', isLive: false },
       { url: 'http://192.168.1.135:8787/api/library/file?library=main&path=b.mp3', title: 'B', isLive: false },
     ]

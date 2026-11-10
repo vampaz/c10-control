@@ -325,10 +325,13 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
           throw new Error('Shuffle must be a boolean')
         }
         const libraryId = String(patch.library ?? '')
+        const dirs = Array.isArray(patch.dirs) ? patch.dirs.map(String) : []
         const dir = typeof patch.dir === 'string' ? patch.dir.trim() : ''
-        const folder = dir
-          ? await deps.library.albumTargets(libraryId, dir)
-          : await deps.library.folderTargets(libraryId, String(patch.path ?? ''))
+        const folder = dirs.length
+          ? await deps.library.albumTargets(libraryId, dirs)
+          : dir
+            ? await deps.library.albumTargets(libraryId, [dir])
+            : await deps.library.folderTargets(libraryId, String(patch.path ?? ''))
         if (!folder) {
           sendJson(response, 404, { error: 'Track not found' })
           return

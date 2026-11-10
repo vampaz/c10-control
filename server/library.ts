@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
-import { createReadStream, realpathSync, statSync } from 'node:fs'
+import { createReadStream, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import type { AlbumListing, AppConfig, LibraryAlbum, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
 import { readCoverArt, type CoverArt } from './artwork.ts'
+import { getDataDirectory } from './config.ts'
 import { detectMediaBaseUrl } from './network.ts'
 import { readTrackTags, type TrackTags } from './tags.ts'
 
@@ -55,6 +56,14 @@ interface AlbumIndexEntry {
   album: LibraryAlbum
   /** Folded album, library and track names, ready for substring search. */
   search: string
+}
+
+interface AlbumTagEntry {
+  /** First-track mtime, so unchanged folders are not read again. */
+  at: number
+  album?: string
+  albumArtist?: string
+  artist?: string
 }
 
 /** Lowercases and strips accents, so "Oxigenio" finds "Oxigénio". */
@@ -186,6 +195,7 @@ export class LibraryService {
   private readonly albumCache = new Map<string, { at: number; entries: AlbumIndexEntry[] }>()
   private readonly artPresence = new Map<string, boolean>()
   private readonly tagCache = new Map<string, { at: number; tags: TrackTags }>()
+  private readonly albumTags = new Map<string, AlbumTagEntry>()
   private readonly scanning = new Map<string, Promise<LibraryFile[]>>()
   private readonly getConfig: () => AppConfig
   private readonly port: number
@@ -193,6 +203,7 @@ export class LibraryService {
   constructor(getConfig: () => AppConfig, port: number) {
     this.getConfig = getConfig
     this.port = port
+    this.loadAlbumTags()
   }
 
   /** Starts indexing at boot so the first Browse request is usually instant. */
@@ -201,6 +212,7 @@ export class LibraryService {
       for (const library of this.getConfig().libraries) {
         await this.files(library.path).catch(() => undefined)
       }
+      await this.refreshAlbumTags().catch(() => undefined)
     })()
   }
 
@@ -282,61 +294,53 @@ export class LibraryService {
       files: await this.files(library.path),
     })))
 
-    const entries = scanned
-      .flatMap(({ library, files }) => this.albumIndex(library, files))
-      .filter((entry) => !needle || entry.search.includes(needle))
+    const entries = scanned.flatMap(({ library, files }) => this.albumIndex(library, files))
 
-    // The per-library index is already sorted; only a combined view needs a merge.
-    const albums = entries.map((entry) => entry.album)
-    if (scanned.length > 1) {
-      albums.sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' })
-        || left.libraryName.localeCompare(right.libraryName))
-    }
-
-    const firstPaths = new Map<string, string>()
-    for (const { library, files } of scanned) {
-      for (const file of files) {
-        const dir = albumDir(dirname(file.path))
-        const key = `${library.id}|${dir}`
-        if (!firstPaths.has(key)) {
-          firstPaths.set(key, file.path)
+    const merged = new Map<string, AlbumIndexEntry>()
+    for (const entry of entries) {
+      const tag = this.albumTags.get(`${entry.album.libraryId}|${entry.album.path}`)
+      const artist = tag?.album ? (tag.albumArtist || tag.artist || '') : ''
+      // Work on a copy: the folder index is cached and must stay unchanged.
+      const album = { ...entry.album, dirs: [...entry.album.dirs] }
+      if (tag?.album) {
+        album.name = tag.album
+        if (artist) {
+          album.artist = artist
         }
       }
+
+      const identity = tag?.album
+        ? `${album.libraryId}|${fold(artist)}|${fold(tag.album)}`
+        : `folder|${album.libraryId}|${album.path}`
+      album.id = createHash('sha1').update(identity).digest('hex').slice(0, 12)
+
+      const normalised: AlbumIndexEntry = {
+        album,
+        search: tag?.album ? `${entry.search} ${fold(`${tag.album} ${artist}`)}` : entry.search,
+      }
+      const existing = merged.get(identity)
+      if (!existing) {
+        merged.set(identity, normalised)
+        continue
+      }
+      existing.album.trackCount += normalised.album.trackCount
+      existing.album.dirs = [...new Set([...existing.album.dirs, ...normalised.album.dirs])]
+      existing.search += ` ${normalised.search}`
     }
 
-    const page = albums.slice(offset, offset + limit)
-    for (let index = 0; index < page.length; index += 8) {
-      await Promise.all(page.slice(index, index + 8).map(async (album) => {
-        const first = firstPaths.get(`${album.libraryId}|${album.path}`)
-        const library = config.libraries.find((entry) => entry.id === album.libraryId)
-        if (first && library) {
-          await this.nameAlbum(album, first, library)
-        }
-      }))
-    }
+    const albums = [...merged.values()]
+      .filter((entry) => !needle || entry.search.includes(needle))
+      .map((entry) => entry.album)
+      .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' })
+        || left.libraryName.localeCompare(right.libraryName))
 
     return {
       libraries,
-      albums: page,
+      albums: albums.slice(offset, offset + limit),
       total: albums.length,
       query,
       limit,
       offset,
-    }
-  }
-
-  /** Applies the album tag and artist to a card, once per cached entry. */
-  private async nameAlbum(album: LibraryAlbum, firstPath: string, library: LibraryRoot): Promise<void> {
-    if (album.artist) {
-      return
-    }
-    const tags = await this.tagsFor(join(library.path, firstPath))
-    if (tags.album) {
-      album.name = tags.album
-    }
-    const artist = tags.albumArtist || tags.artist
-    if (artist) {
-      album.artist = artist
     }
   }
 
@@ -366,6 +370,7 @@ export class LibraryService {
           id: createHash('sha1').update(`${library.id}|${dir}`).digest('hex').slice(0, 12),
           name,
           path: dir,
+          dirs: [dir],
           libraryId: library.id,
           libraryName: library.name,
           trackCount: groupFiles.length,
@@ -484,7 +489,7 @@ export class LibraryService {
    * Every track of an album, including tracks inside its CD1, CD2, ... disc
    * folders, so Play and Shuffle cover the whole release.
    */
-  async albumTargets(libraryId: string, dir: string): Promise<{ targets: PlayTarget[]; index: number } | null> {
+  async albumTargets(libraryId: string, dirs: string[]): Promise<{ targets: PlayTarget[]; index: number } | null> {
     const config = this.getConfig()
     const library = config.libraries.find((entry) => entry.id === libraryId)
     const rootReal = library ? safeReal(library.path) : null
@@ -492,25 +497,27 @@ export class LibraryService {
       return null
     }
 
-    const normalised = dir.replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+$/, '')
-    const directory = normalised === '' || normalised === '.'
-      ? rootReal
-      : safeReal(resolve(rootReal, normalised))
-    if (!directory || !isInside(rootReal, directory)) {
-      return null
-    }
-
     const paths: string[] = []
-    const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
-    for (const entry of entries) {
-      if (entry.isFile() && !entry.name.startsWith('.') && isAudioFile(entry.name)) {
-        paths.push(relative(rootReal, join(directory, entry.name)).split(sep).join('/'))
-      } else if (entry.isDirectory() && DISC_FOLDER.test(entry.name)) {
-        const disc = join(directory, entry.name)
-        const discEntries = await readdir(disc, { withFileTypes: true }).catch(() => [])
-        for (const file of discEntries) {
-          if (file.isFile() && !file.name.startsWith('.') && isAudioFile(file.name)) {
-            paths.push(relative(rootReal, join(disc, file.name)).split(sep).join('/'))
+    for (const dir of dirs) {
+      const normalised = String(dir).replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+$/, '')
+      const directory = normalised === '' || normalised === '.'
+        ? rootReal
+        : safeReal(resolve(rootReal, normalised))
+      if (!directory || !isInside(rootReal, directory)) {
+        continue
+      }
+
+      const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
+      for (const entry of entries) {
+        if (entry.isFile() && !entry.name.startsWith('.') && isAudioFile(entry.name)) {
+          paths.push(relative(rootReal, join(directory, entry.name)).split(sep).join('/'))
+        } else if (entry.isDirectory() && DISC_FOLDER.test(entry.name)) {
+          const disc = join(directory, entry.name)
+          const discEntries = await readdir(disc, { withFileTypes: true }).catch(() => [])
+          for (const file of discEntries) {
+            if (file.isFile() && !file.name.startsWith('.') && isAudioFile(file.name)) {
+              paths.push(relative(rootReal, join(disc, file.name)).split(sep).join('/'))
+            }
           }
         }
       }
@@ -519,8 +526,9 @@ export class LibraryService {
     if (!paths.length) {
       return null
     }
-    paths.sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
-    return { targets: this.buildTargets(libraryId, paths), index: 0 }
+    const unique = [...new Set(paths)]
+      .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
+    return { targets: this.buildTargets(libraryId, unique), index: 0 }
   }
 
   private buildTargets(libraryId: string, paths: string[]): PlayTarget[] {
@@ -632,8 +640,7 @@ export class LibraryService {
     }
   }
 
-  /** Reads tags once per file and keeps them for the cache window. */
-  private async tagsFor(file: string): Promise<TrackTags> {
+  /** Reads tags once per file and keeps them for the cache window. */  private async tagsFor(file: string): Promise<TrackTags> {
     const cached = this.tagCache.get(file)
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
       return cached.tags
@@ -647,6 +654,86 @@ export class LibraryService {
       }
     }
     return tags
+  }
+
+  /** Rebuilds the persisted folder-to-album tag index; also used by warmup. */
+  async refreshAlbumTags(): Promise<void> {
+    const config = this.getConfig()
+    const seen = new Set<string>()
+    let changed = false
+
+    for (const library of config.libraries) {
+      const files = await this.files(library.path).catch(() => [])
+      const folders = new Map<string, string>()
+      for (const file of files) {
+        const dir = albumDir(dirname(file.path))
+        if (!folders.has(dir)) {
+          folders.set(dir, file.path)
+        }
+      }
+
+      for (const [dir, firstPath] of folders) {
+        const key = `${library.id}|${dir}`
+        seen.add(key)
+        const filePath = join(library.path, firstPath)
+        const info = await stat(filePath).catch(() => null)
+        if (!info) {
+          continue
+        }
+        const existing = this.albumTags.get(key)
+        if (existing && existing.at === info.mtimeMs) {
+          continue
+        }
+        const tags = await this.tagsFor(filePath)
+        this.albumTags.set(key, {
+          at: info.mtimeMs,
+          album: tags.album,
+          albumArtist: tags.albumArtist,
+          artist: tags.artist,
+        })
+        changed = true
+      }
+    }
+
+    for (const key of [...this.albumTags.keys()]) {
+      if (!seen.has(key)) {
+        this.albumTags.delete(key)
+        changed = true
+      }
+    }
+
+    if (changed) {
+      this.saveAlbumTags()
+      this.albumCache.clear()
+    }
+  }
+
+  private albumTagsPath(): string {
+    return join(getDataDirectory(), 'album-tags.json')
+  }
+
+  private loadAlbumTags(): void {
+    try {
+      const raw = JSON.parse(readFileSync(this.albumTagsPath(), 'utf8')) as Record<string, AlbumTagEntry>
+      for (const [key, value] of Object.entries(raw)) {
+        if (value && typeof value.at === 'number') {
+          this.albumTags.set(key, value)
+        }
+      }
+    } catch {
+      // The index is rebuilt on the next warmup.
+    }
+  }
+
+  private saveAlbumTags(): void {
+    try {
+      mkdirSync(getDataDirectory(), { recursive: true })
+      const temporary = `${this.albumTagsPath()}.tmp`
+      writeFileSync(temporary, `${JSON.stringify(Object.fromEntries(this.albumTags))}\n`, 'utf8')
+      renameSync(temporary, this.albumTagsPath())
+    } catch {
+      // The index is rebuilt on the next start.
+    }
   }
 
   private async files(root: string): Promise<LibraryFile[]> {

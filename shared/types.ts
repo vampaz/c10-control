@@ -149,6 +149,8 @@ export interface LibraryAlbum {
   name: string
   /** Folder path relative to its library. */
   path: string
+  /** Folders in this album; more than one when tagged folders merge. */
+  dirs: string[]
   libraryId: string
   libraryName: string
   trackCount: number

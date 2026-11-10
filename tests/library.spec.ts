@@ -319,6 +319,7 @@ describe('LibraryService tags', () => {
     }
     const service = new LibraryService(() => config, 5173)
 
+    await service.refreshAlbumTags()
     const listing = await service.listing({ libraryId: 'main' })
     const albums = await service.albums({ libraryId: 'main' })
 
@@ -329,6 +330,37 @@ describe('LibraryService tags', () => {
       track: 3,
     })
     expect(albums.albums[0]).toMatchObject({ name: 'Tag Album', artist: 'Tag Artist' })
+  })
+
+  it('merges folders that share an album tag into one album', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'c10-merge-lib-'))
+    directories.push(root)
+    mkdirSync(join(root, 'Disc A'))
+    mkdirSync(join(root, 'Disc B'))
+    writeFileSync(join(root, 'Disc A', '01.mp3'), taggedMp3('One', 'Artist', 'Same Album'))
+    writeFileSync(join(root, 'Disc B', '02.mp3'), taggedMp3('Two', 'Artist', 'Same Album'))
+    const config: AppConfig = {
+      host: '192.168.1.100',
+      httpPort: 80,
+      upnpPort: 49152,
+      libraries: [{ id: 'main', name: 'Main', path: root }],
+      browseRoots: [],
+      mediaBaseUrl: 'http://192.168.1.135:5173',
+    }
+    const service = new LibraryService(() => config, 5173)
+
+    await service.refreshAlbumTags()
+    const albums = await service.albums({ libraryId: 'main' })
+    const again = await service.albums({ libraryId: 'main' })
+    const merged = albums.albums.find((album) => album.name === 'Same Album')
+
+    expect(albums.albums).toHaveLength(1)
+    expect(merged?.trackCount).toBe(2)
+    expect(again.albums[0]?.trackCount).toBe(2)
+    expect([...(merged?.dirs ?? [])].sort()).toEqual(['Disc A', 'Disc B'])
+
+    const targets = await service.albumTargets('main', merged?.dirs ?? [])
+    expect(targets?.targets).toHaveLength(2)
   })
 })
 
@@ -349,7 +381,7 @@ describe('LibraryService multi-disc albums', () => {
     const tracks = await service.listing({ libraryId: 'main', dir: 'Release' })
     expect(tracks.entries.map((entry) => entry.path)).toEqual(['Release/CD1/01.mp3', 'Release/CD2/01.mp3'])
 
-    const album = await service.albumTargets('main', 'Release')
+    const album = await service.albumTargets('main', ['Release'])
     expect(album?.targets).toHaveLength(2)
     expect(album?.index).toBe(0)
 

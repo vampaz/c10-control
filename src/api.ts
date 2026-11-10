@@ -61,8 +61,8 @@ export function playLibraryFolder(libraryId: string, path: string, shuffle?: boo
 }
 
 /** Plays a whole album folder, including its disc subfolders. */
-export function playLibraryAlbum(libraryId: string, dir: string, shuffle?: boolean): Promise<QueueSnapshot> {
-  const body: Record<string, unknown> = { library: libraryId, dir }
+export function playLibraryAlbum(libraryId: string, dirs: string[], shuffle?: boolean): Promise<QueueSnapshot> {
+  const body: Record<string, unknown> = { library: libraryId, dirs }
   if (shuffle !== undefined) {
     body.shuffle = shuffle
   }

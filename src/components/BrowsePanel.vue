@@ -466,7 +466,7 @@ async function playAlbum(shuffle: boolean): Promise<void> {
   busyUrl.value = 'album'
   error.value = null
   try {
-    queue.value = await playLibraryAlbum(album.libraryId, album.path, shuffle)
+    queue.value = await playLibraryAlbum(album.libraryId, album.dirs, shuffle)
   } catch (cause) {
     error.value = message(cause)
   } finally {
