@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { AppConfig } from '../shared/types.ts'
+import type { AppConfig, PlayTarget } from '../shared/types.ts'
 import { LibraryService, parseRange } from '../server/library.ts'
 
 const directories: string[] = []
@@ -230,6 +230,48 @@ describe('LibraryService search', () => {
 
     expect(tracks.entries.map((entry) => entry.name)).toEqual(['Rádio Oxigénio'])
     expect(albums.albums.map((album) => album.name)).toEqual(['Radio Oxigénio'])
+  })
+})
+
+describe('LibraryService.resolveTarget', () => {
+  it('rebuilds a stored library URL against the current media address', () => {
+    const { config } = fixture()
+    const service = new LibraryService(() => config, 5173)
+
+    const resolved = service.resolveTarget({
+      url: 'http://10.0.0.9:8787/api/library/file?library=main&path=sub%2Fb.flac',
+      title: 'B',
+      isLive: false,
+    })
+
+    expect(resolved.url).toBe('http://192.168.1.135:5173/api/library/file?library=main&path=sub%2Fb.flac')
+    expect(resolved.title).toBe('B')
+  })
+
+  it('leaves other URLs and missing files alone', () => {
+    const { config } = fixture()
+    const service = new LibraryService(() => config, 5173)
+    const radio: PlayTarget = { url: 'http://stream.example.com/live.aac', isLive: true }
+    const missing: PlayTarget = { url: 'http://10.0.0.9:8787/api/library/file?library=main&path=missing.mp3' }
+
+    expect(service.resolveTarget(radio)).toEqual(radio)
+    expect(service.resolveTarget(missing)).toEqual(missing)
+  })
+})
+
+describe('LibraryService.artworkForPlayback', () => {
+  it('returns an art URL only when the file has a cover', async () => {
+    const { config, root } = fixture()
+    mkdirSync(join(root, 'Album'))
+    writeFileSync(join(root, 'Album', 'track.mp3'), 'x')
+    writeFileSync(join(root, 'Album', 'cover.jpg'), Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]))
+    const service = new LibraryService(() => config, 5173)
+
+    const withArt = await service.artworkForPlayback('http://192.168.1.135:5173/api/library/file?library=main&path=Album%2Ftrack.mp3')
+    const withoutArt = await service.artworkForPlayback('http://192.168.1.135:5173/api/library/file?library=main&path=a.mp3')
+
+    expect(withArt).toBe('/api/library/art?library=main&path=Album%2Ftrack.mp3')
+    expect(withoutArt).toBeNull()
   })
 })
 

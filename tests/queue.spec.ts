@@ -264,6 +264,19 @@ describe('QueueController', () => {
 })
 
 describe('QueueController persistence', () => {
+  it('resolves each target before playing it', async () => {
+    const played: PlayTarget[] = []
+    const queue = new QueueController(
+      async (target) => { played.push(target) },
+      null,
+      (target) => ({ ...target, url: `http://current${new URL(target.url).pathname}` }),
+    )
+
+    await queue.replace([FIRST])
+
+    expect(played.at(-1)?.url).toBe('http://current/api/library/file')
+  })
+
   it('restores the queue, active track and mode from disk', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'c10-queue-'))
     const store = join(directory, 'queue.json')

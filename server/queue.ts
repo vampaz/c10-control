@@ -27,10 +27,16 @@ export class QueueController {
   private advancing = false
   private readonly playTarget: (target: PlayTarget) => Promise<void>
   private readonly storePath: string | null
+  private readonly resolveTarget: (target: PlayTarget) => PlayTarget
 
-  constructor(playTarget: (target: PlayTarget) => Promise<void>, storePath: string | null = null) {
+  constructor(
+    playTarget: (target: PlayTarget) => Promise<void>,
+    storePath: string | null = null,
+    resolveTarget: (target: PlayTarget) => PlayTarget = (target) => target,
+  ) {
     this.playTarget = playTarget
     this.storePath = storePath
+    this.resolveTarget = resolveTarget
     this.restore()
   }
 
@@ -128,7 +134,7 @@ export class QueueController {
     this.startedAt = Date.now()
     this.advancing = false
     this.persist()
-    await this.playTarget(this.items[index])
+    await this.playTarget(this.resolveTarget(this.items[index]))
     return true
   }
 

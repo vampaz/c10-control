@@ -61,6 +61,21 @@ function fold(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
+/** Reads the library file reference from one of our own file URLs. */
+function libraryFile(url: string): { libraryId: string; path: string } | null {
+  try {
+    const parsed = new URL(url, 'http://localhost')
+    if (parsed.pathname !== '/api/library/file') {
+      return null
+    }
+    const libraryId = parsed.searchParams.get('library')
+    const path = parsed.searchParams.get('path')
+    return libraryId && path ? { libraryId, path } : null
+  } catch {
+    return null
+  }
+}
+
 export function isAudioFile(path: string): boolean {
   return AUDIO_EXTENSIONS.has(extname(path).toLowerCase())
 }
@@ -161,6 +176,7 @@ async function scan(root: string): Promise<LibraryFile[]> {
 export class LibraryService {
   private readonly cache = new Map<string, { at: number; files: LibraryFile[] }>()
   private readonly albumCache = new Map<string, { at: number; entries: AlbumIndexEntry[] }>()
+  private readonly artPresence = new Map<string, boolean>()
   private readonly scanning = new Map<string, Promise<LibraryFile[]>>()
   private readonly getConfig: () => AppConfig
   private readonly port: number
@@ -420,6 +436,52 @@ export class LibraryService {
     })
 
     return { targets, index }
+  }
+
+  /**
+   * Rebuilds a stored library URL against the current media address, so a
+   * preset or playlist item keeps working when the machine's address changes.
+   */
+  resolveTarget(target: PlayTarget): PlayTarget {
+    const reference = libraryFile(target.url)
+    if (!reference || !this.resolveFile(reference.libraryId, reference.path)) {
+      return target
+    }
+    const config = this.getConfig()
+    const mediaBaseUrl = detectMediaBaseUrl(config.host, this.port, config.mediaBaseUrl)
+    return {
+      ...target,
+      url: `${mediaBaseUrl}/api/library/file?library=${encodeURIComponent(reference.libraryId)}&path=${encodeURIComponent(reference.path)}`,
+    }
+  }
+
+  /**
+   * The playback artwork URL, but only when the file actually has art, so the
+   * browser does not request a cover that would answer 404.
+   */
+  async artworkForPlayback(url: string): Promise<string | null> {
+    const link = this.artworkUrl(url)
+    const reference = libraryFile(url)
+    const file = reference ? this.resolveFile(reference.libraryId, reference.path) : null
+    if (!link || !file) {
+      return null
+    }
+
+    const cached = this.artPresence.get(url)
+    if (cached !== undefined) {
+      return cached ? link : null
+    }
+
+    const art = await readCoverArt(file).catch(() => null)
+    const present = art !== null
+    this.artPresence.set(url, present)
+    if (this.artPresence.size > 200) {
+      const oldest = this.artPresence.keys().next().value
+      if (oldest !== undefined) {
+        this.artPresence.delete(oldest)
+      }
+    }
+    return present ? link : null
   }
 
   /** Cover art embedded in a library file, or an image from its album folder. */

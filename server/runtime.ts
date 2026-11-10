@@ -30,10 +30,14 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
   const presets = new PresetStore(getDataDirectory())
   const playlists = new PlaylistStore(getDataDirectory())
   const library = new LibraryService(loadConfig, port)
-  poller.artworkFor = (url) => library.artworkUrl(url)
+  poller.artworkFor = (url) => library.artworkForPlayback(url)
   library.warmup()
   const folders = new FolderBrowser(loadConfig)
-  const queue = new QueueController((target) => poller.playTarget(target), join(getDataDirectory(), 'queue.json'))
+  const queue = new QueueController(
+    (target) => poller.playTarget(target),
+    join(getDataDirectory(), 'queue.json'),
+    (target) => library.resolveTarget(target),
+  )
   poller.onState = (state) => void queue.onState(state)
   const sleep = new SleepTimer({
     getVolume: () => poller.current.volume.level,

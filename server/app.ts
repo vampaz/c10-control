@@ -199,7 +199,7 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
       }
 
       if (pathname === '/api/play' && method === 'POST') {
-        const target = parsePlayTarget(await readJsonBody(request))
+        const target = deps.library.resolveTarget(parsePlayTarget(await readJsonBody(request)))
         await deps.poller.playTarget(target)
         sendJson(response, 200, deps.poller.current)
         return
@@ -456,7 +456,9 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
           if (!playlist) {
             throw new Error('Playlist not found')
           }
-          sendJson(response, 200, await deps.queue.replace(playlist.items))
+          sendJson(response, 200, await deps.queue.replace(
+            playlist.items.map((item) => deps.library.resolveTarget(item)),
+          ))
           return
         }
       }

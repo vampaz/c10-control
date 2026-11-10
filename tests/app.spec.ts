@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { emptySpeakerState, type AppConfig, type SpeakerState } from '../shared/types.ts'
+import { emptySpeakerState, type AppConfig, type PlayTarget, type SpeakerState } from '../shared/types.ts'
 import { createRequestHandler, type AppDependencies } from '../server/app.ts'
 import type { FavoriteStore } from '../server/favorites.ts'
 import type { FolderBrowser } from '../server/folders.ts'
@@ -97,6 +97,7 @@ function makeDeps(overrides: Partial<AppDependencies> = {}): AppDependencies {
       mediaBaseUrl: '',
     })),
     stream: vi.fn(() => true),
+    resolveTarget: (target: PlayTarget) => target,
   } as unknown as LibraryService
 
   const folders = {
@@ -294,6 +295,27 @@ describe('play requests', () => {
       artworkUrl: null,
       isLive: true,
     })
+  })
+
+  it('rebuilds a stored library URL before playing', async () => {
+    const resolveTarget = vi.fn((target: PlayTarget) => ({
+      ...target,
+      url: 'http://current/api/library/file?library=main&path=a.mp3',
+    }))
+    const library = { resolveTarget } as unknown as LibraryService
+    const deps = makeDeps({ library })
+    const { url } = await start(deps)
+
+    await fetch(`${url}/api/play`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'http://old/api/library/file?library=main&path=a.mp3', title: 'A' }),
+    })
+
+    expect(resolveTarget).toHaveBeenCalled()
+    expect(deps.poller.playTarget).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'http://current/api/library/file?library=main&path=a.mp3',
+    }))
   })
 
   it('rejects a non http URL', async () => {

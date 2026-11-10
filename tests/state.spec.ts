@@ -140,7 +140,7 @@ describe('SpeakerPoller.refresh', () => {
     })
     const { device } = fakeDevice({ mediaInfo, status: async () => playerStatus({ mode: 2, duration: 240 }) })
     const poller = new SpeakerPoller(device)
-    poller.artworkFor = (url) => url.includes('/api/library/file') ? '/api/library/art?library=main&path=a.flac' : null
+    poller.artworkFor = async (url) => url.includes('/api/library/file') ? '/api/library/art?library=main&path=a.flac' : null
 
     await poller.refresh()
 

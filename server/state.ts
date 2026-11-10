@@ -20,7 +20,7 @@ export class SpeakerPoller {
   /** Called after every emitted state, for app-side features such as the queue. */
   onState: ((state: SpeakerState) => void) | null = null
   /** Resolves cover art for local library files, which carry no DIDL artwork. */
-  artworkFor: ((url: string) => string | null) | null = null
+  artworkFor: ((url: string) => Promise<string | null>) | null = null
   private state: SpeakerState = emptySpeakerState()
   private readonly listeners = new Set<Listener>()
   private timer: ReturnType<typeof setInterval> | null = null
@@ -105,6 +105,8 @@ export class SpeakerPoller {
         : status.status
 
       this.misses = 0
+      const artworkUrl = this.media.artworkUrl
+        ?? (this.artworkFor ? await this.artworkFor(this.media.url) : null)
       this.state = {
         connected: true,
         device: this.info,
@@ -118,7 +120,7 @@ export class SpeakerPoller {
           duration: status.duration,
           isLive: status.isLive,
           url: this.media.url,
-          artworkUrl: this.media.artworkUrl ?? this.artworkFor?.(this.media.url) ?? null,
+          artworkUrl,
         },
         volume: { level: status.volume, muted: status.muted },
         source: modeLabel(status.mode),
