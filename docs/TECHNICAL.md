@@ -31,7 +31,7 @@ flowchart LR
 
     subgraph node["Node server — this machine"]
         direction TB
-        api["HTTP API<br/>/api/state · /api/command · /api/events<br/>/api/play · /api/library · /api/queue<br/>/api/playlists · /api/config"]
+        api["HTTP API<br/>/api/state · /api/command · /api/events<br/>/api/play · /api/library · /api/queue<br/>/api/playlists · /api/config · /api/device<br/>/api/speaker-queue"]
         poller["SpeakerPoller<br/>1.5 s poll loop<br/>dedupe · fan-out"]
         device["SpeakerDevice<br/>UPnP SOAP + httpapi<br/>GetMediaInfo"]
         discovery["SSDP discovery<br/>UDP 1900"]
@@ -66,7 +66,7 @@ The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs 
 | `server/runtime.ts` | Builds the API, the poller and the speaker client; shared by both entry points |
 | `server/app.ts` | Routes, JSON bodies, Server-Sent Events |
 | `server/state.ts` | `SpeakerPoller`: polls while clients are connected, collapses overlapping polls, marks the speaker offline after two misses, fans state out to subscribers |
-| `server/device.ts` | `SpeakerDevice`: one method per speaker action, all HTTP and SOAP details |
+| `server/device.ts` | `SpeakerDevice`: speaker actions, device details, rename, PlayQueue and all HTTP/SOAP details |
 | `server/soap.ts` | SOAP envelope builder and response/fault parser |
 | `server/status.ts` | `getPlayerStatus` payload parsing, hex text decoding, source and input labels |
 | `server/mediainfo.ts` | `GetMediaInfo` DIDL parsing: cover art, subtitle and current URI |
@@ -74,23 +74,30 @@ The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs 
 | `server/config.ts` | Address, library and media-URL validation, `.data/config.json` persistence |
 | `server/network.ts` | Picks the local address the speaker can reach for library files |
 | `server/didl.ts` | Builds the DIDL-Lite metadata sent with a pushed URI |
-| `server/radio.ts` | Station search against radio-browser.info, with caching |
+| `server/radio.ts` | Station search and popular-station paging against radio-browser.info, with caching |
 | `server/favorites.ts` | Favorite stations in `.data/favorites.json` |
 | `server/presets.ts` | Six preset slots in `.data/presets.json` |
 | `server/playlists.ts` | Named playlists in `.data/playlists.json` |
-| `server/library.ts` | Multi-folder index, safe path resolution, Range streaming, cover art, folder playback and tag lookup |
+| `server/library.ts` | Multi-folder index, safe path resolution, Range streaming, cover art, folder playback, tags and album merging |
 | `server/tags.ts` | FLAC, ID3 and MP4 text tag reader |
 | `server/thumbs.ts` | Square WebP cover thumbnails through sharp |
+| `server/positions.ts` | Resume positions per library file |
+| `server/playqueue.ts` | Wiimu PlayQueue document builder and parser |
+| `server/log.ts` | Timestamped logs and warnings |
 | `server/folders.ts` | Read-only directory listing for the settings folder browser |
-| `server/queue.ts` | App-side queue and auto-advance |
+| `server/queue.ts` | App-side queue, modes and auto-advance |
 | `server/sleep.ts` | Sleep timer with fade-out and volume restore |
-| `src/components/BrowsePanel.vue` | Radio search, favorites, libraries, queue and playlists |
-| `src/components/LibraryPanel.vue` | Album track list |
+| `src/components/BrowsePanel.vue` | Radio, favorites, albums, stream URL, queue and playlists |
+| `src/components/LibraryPanel.vue` | Album track list with the playing marker |
 | `src/components/AlbumGrid.vue` | Album cards with cover art |
+| `src/components/QueuePanel.vue` | Queue rows, reorder, remove and speaker handoff |
+| `src/components/UpNext.vue` | Desktop up-next rail |
+| `src/components/QueueModes.vue` | Repeat and shuffle controls |
+| `src/components/DevicePanel.vue` | Settings: address, input, folders, media URL, rename and device details |
 | `src/components/PlaylistsPanel.vue` | Playlist create, rename, delete and item management |
-| `src/components/PresetBar.vue` | Six preset slots |
+| `src/components/PresetBar.vue` | Six preset slots with cover art |
 | `src/components/SleepControl.vue` | Sleep timer menu and countdown |
-| `src/components/InputControl.vue` | Input selector |
+| `src/components/InputControl.vue` | Input selector inside settings |
 | `src/composables/useSpeaker.ts` | One reactive state object for the UI, command dispatch |
 | `src/api.ts` | Thin `fetch`/`EventSource` wrapper for the endpoints above |
 
@@ -134,7 +141,8 @@ sequenceDiagram
 
 - `http://<speaker>/httpapi.asp?command=getPlayerStatus` for playback state, volume, mute and source mode; `getStatusEx` for the device name, model and firmware. `curpos` and `totlen` are milliseconds, and local files report `status: "none"` while they play.
 - SOAP over UPnP on `http://<speaker>:49152/upnp/control/rendertransport1` for `Play`, `Pause`, `Stop`, `Next`, `Previous`, `Seek`, `SetAVTransportURI` when the app starts something new, `GetMediaInfo` for cover art, subtitle and the current URI, and `GetTransportInfo` for the authoritative play state.
-- SOAP over UPnP on `http://<speaker>:49152/upnp/control/rendercontrol1` for `SetVolume` and `SetMute`.
+- SOAP over UPnP on `http://<speaker>:49152/upnp/control/rendercontrol1` for `SetVolume`, `SetMute`, `GetControlDeviceInfo` (signal, channel, internet, update flags) and `SetDeviceName`.
+- Wiimu `PlayQueue` on `http://<speaker>:49152/upnp/control/PlayQueue1` for the device-side queue: `CreateQueue` with a `PlayList` document, `BrowseQueue`, `DeleteQueue` and `PlayQueueWithIndex`.
 - `http://<speaker>/httpapi.asp?command=setPlayerCmd:switchmode:<input>` for Wi-Fi, Bluetooth, Aux (`line-in`) and Optical.
 
 This firmware answers `unknown command` for many `httpapi.asp` commands (`setVolume`, `getMute`, presets and most `setPlayerCmd` variants), so control goes through UPnP, which is fully implemented. `switchmode` is the exception.
@@ -167,7 +175,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `GET` | `/api/library` | Indexed files with speaker-ready URLs, `?q=&library=&dir=&limit=&offset=` |
 | `GET` | `/api/library/albums` | Album folders with track counts and cover art, `?q=&library=&limit=&offset=` |
 | `GET` | `/api/library/file?library=&path=` | Stream a file, with Range support |
-| `GET` | `/api/library/art?library=&path=` | Cover art from the file's tags or its album folder |
+| `GET` | `/api/library/art?library=&path=` | Cover art from the file's tags or its album folder; `w=` returns a WebP thumbnail, `fallback=1` returns a blank PNG instead of 404 |
 | `POST` | `/api/library/play` | Play `{ library, path }` or `{ library, dirs, shuffle? }` with the folder queued |
 | `GET` | `/api/folders?path=` | List directories under the browse roots |
 | `GET` | `/api/playlists` | List playlists |
@@ -211,7 +219,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `.data/positions.json` | Resume positions for finite tracks |
 | `.data/thumbs/` | Cached WebP cover thumbnails |
 
-All four live in the `c10-data` volume at `/data` inside the container. The `.data` directory is ignored by git. No library is configured by default: add folders in the settings dialog, or set `C10_LIBRARY_DIR` / `C10_LIBRARY_DIRS` as deployment defaults.
+All of these live in the `c10-data` volume at `/data` inside the container. The `.data` directory is ignored by git. No library is configured by default: add folders in the settings dialog, or set `C10_LIBRARY_DIR` / `C10_LIBRARY_DIRS` as deployment defaults.
 
 The settings folder browser lists directories under `C10_BROWSE_ROOTS` only. In the Docker compose file that root is `/host/music`, backed by the read-only `C10_MUSIC_ROOT` mount.
 
@@ -225,7 +233,9 @@ The library path is saved in `config.json`, but the folder contents are not. In 
 - **Multiroom grouping is not implemented.** `multiroom:getSlaveList` answers with a count, but the join and leave commands are undocumented and could not be verified with a single speaker. The app does not ship untested group actions.
 - **Plex is not implemented.** Plex's media API answers `401` without an `X-Plex-Token`, even on the LAN. A link-code sign-in is possible; folder libraries and playlists were the priority.
 - **The queue is persisted.** `.data/queue.json` keeps the list, the active track, repeat and shuffle; the speaker keeps playing the current track while the server restarts.
-- **Library scans are cached for five minutes.** New files appear after the cache expires or after a restart.
+- **Play on speaker moves ownership.** The list is copied to the device's own PlayQueue and the app queue is cleared, so the device handles next and previous. The app does not mirror the device queue afterwards.
+- **Installation needs HTTPS.** Android offers installation only on a secure origin. The LAN URL over plain HTTP works but cannot be installed; Serve it over HTTPS for the install prompt.
+- **Library scans are cached for five minutes.** New files appear after the cache expires or after a restart. Album tag names are indexed at startup, so a new folder keeps its folder name until the service restarts.
 - **Local files need a speaker-reachable URL.** The speaker fetches the file itself, so `localhost` will not work. The app detects an address on the speaker's subnet, and `C10_MEDIA_URL` overrides it for Docker bridge networks. Docker compose mounts `C10_MUSIC_ROOT` read-only at `/host/music` and exposes it through the settings folder browser; paths outside that mount are not visible to the container.
 - **Sleep timer, presets and playlists are app-side.** They run in this server, not on the speaker, and stop if the server stops.
 - **Discovery needs multicast.** If SSDP is blocked on your network, or the app runs in a Docker bridge network, enter the address by hand or set `C10_HOST`.
@@ -242,7 +252,7 @@ The library path is saved in `config.json`, but the folder contents are not. In 
 | `npm run typecheck` | `vue-tsc --noEmit` |
 | `npm test` | Vitest |
 
-GitHub Actions runs lint, typecheck, tests and build on every push and pull request.
+GitHub Actions runs lint, typecheck, tests and build on every push and pull request, plus a Docker job that builds the image and smoke-tests health, the app shell, the manifest and an icon.
 
 ## Layout
 
@@ -270,7 +280,12 @@ server/
   favorites.ts    favorite stations
   presets.ts      six preset slots
   playlists.ts    named playlists and their tracks
-  library.ts      multi-folder index, path safety, Range streaming
+  library.ts      multi-folder index, path safety, Range streaming, tags and art
+  tags.ts         FLAC, ID3 and MP4 text tag reader
+  thumbs.ts       WebP cover thumbnails
+  positions.ts    resume positions per track
+  playqueue.ts    Wiimu PlayQueue document builder and parser
+  log.ts          timestamped logs
   folders.ts      read-only directory listing for the folder browser
   queue.ts        app-side queue and auto-advance
   sleep.ts        sleep timer with fade-out

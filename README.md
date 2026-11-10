@@ -6,15 +6,18 @@ A self-hosted web remote for the **Audio Pro C10** (Linkplay A28) speaker. It ru
 
 ## What it does
 
-- Browse and play internet radio
+- Browse and play internet radio, with a popular-station list before you search
 - Play files from folders on the machine running the app
-- Build a queue and playlists
+- Browse albums built from tags, with cover art and multi-disc merging
+- Build a queue and playlists, or hand the queue to the speaker itself
+- Resume a track where it stopped
 - Save six presets for one-tap playback
 - Set a sleep timer that fades out and pauses
 - Switch between Wi-Fi, Bluetooth, Aux and Optical inputs
 - Show the real title, artist, album and cover art
 - Control play, pause, next, previous, seek, volume and mute
 - Recover automatically when the speaker drops off the network
+- Install it as an app on a phone
 
 ## Requirements
 
@@ -60,7 +63,7 @@ If you use the default bridge network, the speaker cannot fetch local files from
 
 ## Configuration
 
-The settings dialog covers the speaker address, music folders and the media URL. Environment variables override the saved settings, which is useful for Docker.
+The settings dialog covers the speaker address, input, music folders, media URL, speaker name and device details. Environment variables override the saved settings, which is useful for Docker.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -70,6 +73,7 @@ The settings dialog covers the speaker address, music folders and the media URL.
 | `C10_LIBRARY_DIR` | empty | One folder scanned for local audio; unset means no library until you add one |
 | `C10_LIBRARY_DIRS` | empty | Comma-separated folders, adds several libraries |
 | `C10_BROWSE_ROOTS` | empty | Parent folders the settings folder browser may read |
+| `C10_MUSIC_ROOT` | required by compose | Host parent folder mounted at `/host/music`; compose only |
 | `C10_MEDIA_URL` | auto | Base URL the speaker uses to fetch local files |
 | `PORT` | `5173` dev, `8787` start | Port this app listens on |
 | `C10_DATA_DIR` | `.data` | Where saved settings live |
@@ -94,7 +98,7 @@ The speaker fetches the file from this app, so the app needs a LAN address the s
 
 ### Queue and playlists
 
-The **Queue** tab shows what plays next. Tracks advance automatically when they finish; live radio does not auto-advance. Finite tracks resume where they stopped; a track you play to the end starts over. Drag a row to reorder the queue, and use the plus and next buttons on a library track to add it or play it next. **Play on speaker** hands the whole list to the speaker's own queue, after which the device handles next and previous. Under the transport, **Repeat** cycles off → all → one, and **Shuffle** plays the queue in a random order, shown in the Queue tab. Both keep working when the queue is replaced.
+The **Queue** tab shows what plays next. Tracks advance automatically when they finish; live radio does not auto-advance. The queue, repeat and shuffle survive restarts. Finite tracks resume where they stopped; a track you play to the end starts over. Drag a row to reorder the queue, and use the plus and next buttons on a library track to add it or play it next. **Play on speaker** hands the whole list to the speaker's own queue, after which the device handles next and previous. Under the transport, **Repeat** cycles off → all → one, and **Shuffle** plays the queue in a random order, shown in the Queue tab. Both keep working when the queue is replaced.
 
 The **Playlists** tab creates, renames and deletes lists. Press **Add the current track** to add what is playing, then **Play** to load the list into the queue.
 
@@ -102,7 +106,7 @@ The **Playlists** tab creates, renames and deletes lists. Press **Add the curren
 
 - **Presets**: press an empty slot to save the current track, a filled slot to play it, and the small × to clear it.
 - **Sleep**: choose 15, 30, 45 or 60 minutes. The volume fades out over the last 20 seconds, then playback pauses.
-- **Input**: switch between Wi-Fi, Bluetooth, Aux and Optical. Switching inputs stops the current stream.
+- **Input** (in **Speaker settings**): switch between Wi-Fi, Bluetooth, Aux and Optical. Switching inputs stops the current stream.
 
 ### Install as an app
 
