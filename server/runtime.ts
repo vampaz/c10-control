@@ -29,6 +29,7 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
   const presets = new PresetStore(getDataDirectory())
   const playlists = new PlaylistStore(getDataDirectory())
   const library = new LibraryService(loadConfig, port)
+  poller.artworkFor = (url) => library.artworkUrl(url)
   library.warmup()
   const folders = new FolderBrowser(loadConfig)
   const queue = new QueueController((target) => poller.playTarget(target))

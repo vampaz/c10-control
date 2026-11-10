@@ -3,6 +3,7 @@ import { SpeakerPoller } from '../server/state.ts'
 import type { SpeakerDevice } from '../server/device.ts'
 import type { PlayerStatus } from '../server/status.ts'
 import type { PlaybackStatus } from '../shared/types.ts'
+import type { MediaInfo } from '../server/mediainfo.ts'
 
 const INFO = {
   host: '192.168.1.100',
@@ -30,19 +31,20 @@ function playerStatus(overrides: Partial<PlayerStatus> = {}): PlayerStatus {
 
 interface FakeDeviceOptions {
   status?: () => Promise<PlayerStatus>
+  mediaInfo?: () => Promise<MediaInfo>
 }
 
 function fakeDevice(options: FakeDeviceOptions = {}) {
   const calls = {
     getPlayerStatus: vi.fn(options.status ?? (async () => playerStatus())),
     getDeviceInfo: vi.fn(async () => INFO),
-    getMediaInfo: vi.fn(async () => ({
+    getMediaInfo: vi.fn(options.mediaInfo ?? (async () => ({
       url: 'http://proic1.redeaudio.com/oxigenio_aac',
       title: 'Rádio Oxigénio',
       subtitle: 'Música para Respirar',
       artworkUrl: 'https://example.com/logo.jpg',
       isLive: true,
-    })),
+    }))),
     getTransportState: vi.fn(async (): Promise<PlaybackStatus> => 'playing'),
     play: vi.fn(async () => undefined),
     pause: vi.fn(async () => undefined),
@@ -97,6 +99,23 @@ describe('SpeakerPoller.refresh', () => {
 
     expect(poller.current.connected).toBe(true)
     expect(poller.current.playback.artworkUrl).toBeNull()
+  })
+
+  it('asks the library for artwork when the speaker reports none', async () => {
+    const mediaInfo = async (): Promise<MediaInfo> => ({
+      url: 'http://192.168.1.135:8787/api/library/file?library=main&path=a.flac',
+      title: 'Track',
+      subtitle: '',
+      artworkUrl: null,
+      isLive: false,
+    })
+    const { device } = fakeDevice({ mediaInfo, status: async () => playerStatus({ mode: 2, duration: 240 }) })
+    const poller = new SpeakerPoller(device)
+    poller.artworkFor = (url) => url.includes('/api/library/file') ? '/api/library/art?library=main&path=a.flac' : null
+
+    await poller.refresh()
+
+    expect(poller.current.playback.artworkUrl).toBe('/api/library/art?library=main&path=a.flac')
   })
 
   it('uses the UPnP transport state for a paused local file', async () => {

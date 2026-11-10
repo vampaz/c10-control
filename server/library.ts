@@ -4,6 +4,7 @@ import { readdir, stat } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename, extname, join, relative, resolve, sep } from 'node:path'
 import type { AppConfig, LibraryEntry, LibraryListing, LibraryRoot } from '../shared/types.ts'
+import { readCoverArt, type CoverArt } from './artwork.ts'
 import { detectMediaBaseUrl } from './network.ts'
 
 const AUDIO_EXTENSIONS = new Set([
@@ -232,8 +233,7 @@ export class LibraryService {
   }
 
   /** Streams a file with range support. Returns false when it is not servable. */
-  stream(libraryId: string, relativePath: string, request: IncomingMessage, response: ServerResponse): boolean {
-    const file = this.resolveFile(libraryId, relativePath)
+  stream(libraryId: string, relativePath: string, request: IncomingMessage, response: ServerResponse): boolean {    const file = this.resolveFile(libraryId, relativePath)
     if (!file) {
       return false
     }
@@ -276,6 +276,37 @@ export class LibraryService {
       .on('error', () => response.destroy())
       .pipe(response)
     return true
+  }
+
+  /** Cover art embedded in a library file, or an image from its album folder. */
+  async artwork(libraryId: string, relativePath: string): Promise<CoverArt | null> {
+    const file = this.resolveFile(libraryId, relativePath)
+    return file ? readCoverArt(file) : null
+  }
+
+  /**
+   * Maps a playing library file URL to its artwork endpoint. Local files have no
+   * DIDL artwork, so the poller asks for one when the speaker reports none.
+   */
+  artworkUrl(playbackUrl: string): string | null {
+    if (!playbackUrl) {
+      return null
+    }
+    let url: URL
+    try {
+      url = new URL(playbackUrl, 'http://localhost')
+    } catch {
+      return null
+    }
+    if (url.pathname !== '/api/library/file') {
+      return null
+    }
+    const library = url.searchParams.get('library')
+    const path = url.searchParams.get('path')
+    if (!library || !path) {
+      return null
+    }
+    return `/api/library/art?library=${encodeURIComponent(library)}&path=${encodeURIComponent(path)}`
   }
 
   private async entry(mediaBaseUrl: string, library: LibraryRoot, file: LibraryFile): Promise<LibraryEntry | null> {

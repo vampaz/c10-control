@@ -277,6 +277,24 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
         return
       }
 
+      if (pathname === '/api/library/art' && (method === 'GET' || method === 'HEAD')) {
+        const art = await deps.library.artwork(
+          url.searchParams.get('library') ?? '',
+          url.searchParams.get('path') ?? '',
+        )
+        if (!art) {
+          sendJson(response, 404, { error: 'Artwork not found' })
+          return
+        }
+        response.writeHead(200, {
+          'Content-Type': art.mime,
+          'Content-Length': art.data.length,
+          'Cache-Control': 'public, max-age=86400',
+        })
+        response.end(method === 'HEAD' ? undefined : art.data)
+        return
+      }
+
       if (pathname === '/api/folders' && method === 'GET') {
         sendJson(response, 200, await deps.folders.listing(url.searchParams.get('path') ?? ''))
         return

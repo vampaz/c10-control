@@ -126,6 +126,26 @@ describe('LibraryService.resolveFile', () => {
   })
 })
 
+describe('LibraryService.artworkUrl', () => {
+  it('maps a playing library file to the artwork endpoint', () => {
+    const { config } = fixture()
+    const library = new LibraryService(() => config, 5173)
+
+    expect(library.artworkUrl('http://192.168.1.135:5173/api/library/file?library=main&path=sub%2Fb.flac'))
+      .toBe('/api/library/art?library=main&path=sub%2Fb.flac')
+  })
+
+  it('ignores streams, other paths and empty urls', () => {
+    const { config } = fixture()
+    const library = new LibraryService(() => config, 5173)
+
+    expect(library.artworkUrl('http://stream.example.com/live.aac')).toBeNull()
+    expect(library.artworkUrl('/api/discovery')).toBeNull()
+    expect(library.artworkUrl('')).toBeNull()
+    expect(library.artworkUrl('http://192.168.1.135:5173/api/library/file?library=main')).toBeNull()
+  })
+})
+
 describe('parseRange', () => {
   it('parses common byte ranges', () => {
     expect(parseRange('bytes=0-9', 100)).toEqual({ start: 0, end: 9 })

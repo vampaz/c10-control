@@ -658,6 +658,30 @@ describe('folders', () => {
   })
 })
 
+describe('library artwork', () => {
+  it('serves the cover art of a library file', async () => {
+    const artwork = vi.fn(async () => ({ data: Buffer.from([0xff, 0xd8, 0xff, 0xe0]), mime: 'image/jpeg' }))
+    const library = { artwork } as unknown as LibraryService
+    const { url } = await start(makeDeps({ library }))
+
+    const response = await fetch(`${url}/api/library/art?library=main&path=sub%2Fb.flac`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('image/jpeg')
+    expect(artwork).toHaveBeenCalledWith('main', 'sub/b.flac')
+    expect((await response.arrayBuffer()).byteLength).toBe(4)
+  })
+
+  it('answers 404 when a file has no art', async () => {
+    const library = { artwork: vi.fn(async () => null) } as unknown as LibraryService
+    const { url } = await start(makeDeps({ library }))
+
+    const response = await fetch(`${url}/api/library/art?library=main&path=a.mp3`)
+
+    expect(response.status).toBe(404)
+  })
+})
+
 describe('unknown routes', () => {
   it('answers with 404 JSON', async () => {
     const { url } = await start(makeDeps())
