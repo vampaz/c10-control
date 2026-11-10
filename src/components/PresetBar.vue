@@ -30,22 +30,22 @@ function label(target: PlayTarget | null): string {
         type="button"
         class="slot-main"
         :disabled="busy"
-        :aria-label="`Play preset ${index + 1}: ${label(target)}`"
         @click="emit('play', target)"
       >
         <span class="slot-index">{{ index + 1 }}</span>
         <span class="slot-title">{{ label(target) }}</span>
+        <span class="sr-only">Play preset {{ index + 1 }}</span>
       </button>
       <button
         v-else
         type="button"
         class="slot-main empty"
         :disabled="busy || !current"
-        :aria-label="`Save the current track to preset ${index + 1}`"
         @click="emit('save', index)"
       >
         <span class="slot-index">{{ index + 1 }}</span>
         <span class="slot-title">Set</span>
+        <span class="sr-only">Save the current track to preset {{ index + 1 }}</span>
       </button>
 
       <button
@@ -63,6 +63,18 @@ function label(target: PlayTarget | null): string {
 </template>
 
 <style scoped>
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .presets {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -99,13 +111,13 @@ function label(target: PlayTarget | null): string {
 }
 
 .slot-main.empty .slot-title {
-  color: var(--ink-faint);
+  color: var(--ink-dim);
 }
 
 .slot-index {
   font-size: 0.62rem;
   letter-spacing: 0.12em;
-  color: var(--ink-faint);
+  color: var(--ink-dim);
   font-variant-numeric: tabular-nums;
 }
 

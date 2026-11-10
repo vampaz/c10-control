@@ -59,6 +59,14 @@ function saveRename(): void {
   editing.value = false
 }
 
+function play(): void {
+  if (!selected.value) {
+    return
+  }
+  confirmDelete.value = false
+  emit('play', selected.value.id)
+}
+
 function remove(): void {
   if (!selected.value) {
     return
@@ -112,7 +120,7 @@ function meta(item: PlaylistItem): string {
       <header class="detail-head">
         <strong>{{ selected.name }}</strong>
         <div class="actions">
-          <button type="button" class="text-button" :disabled="busy || !selected.items.length" @click="emit('play', selected.id)">
+          <button type="button" class="text-button" :disabled="busy || !selected.items.length" @click="play">
             Play
           </button>
           <button type="button" class="text-button" @click="startRename">Rename</button>

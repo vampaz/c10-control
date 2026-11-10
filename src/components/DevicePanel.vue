@@ -86,7 +86,7 @@ async function save(): Promise<void> {
     emit('saved', next)
     emit('close')
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Could not save the address'
+    error.value = cause instanceof Error ? cause.message : 'Could not save the settings'
   } finally {
     saving.value = false
   }

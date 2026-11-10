@@ -60,7 +60,7 @@ const INPUTS: { value: SpeakerInput; label: string }[] = [
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #17181a;
-  color: var(--ink-faint);
+  color: var(--ink-dim);
   font: inherit;
   font-size: 0.76rem;
   cursor: pointer;

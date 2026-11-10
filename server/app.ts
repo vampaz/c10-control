@@ -358,6 +358,7 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
           return
         }
         if (rest.length === 2 && rest[1] === 'current' && method === 'POST') {
+          await deps.poller.ensureFresh()
           sendJson(response, 200, { playlists: deps.playlists.addItem(id, currentTarget(deps)) })
           return
         }
