@@ -8,6 +8,12 @@ describe('decodeText', () => {
     expect(decodeText('52C3A164696F204F786967C3A96E696F')).toBe('Rádio Oxigénio')
   })
 
+  it('unescapes XML entities that the speaker echoes back', () => {
+    expect(decodeText('4169722D30312D4C612046656D6D6520642661706F733B417267656E74')).toBe("Air-01-La Femme d'Argent")
+    expect(decodeText('Rock &amp; Roll')).toBe('Rock & Roll')
+    expect(decodeText('Air d&apos;Argent')).toBe("Air d'Argent")
+  })
+
   it('keeps plain text intact', () => {
     expect(decodeText('unknown')).toBe('unknown')
     expect(decodeText('Daft Punk')).toBe('Daft Punk')

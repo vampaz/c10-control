@@ -1,4 +1,5 @@
 import type { PlaybackStatus, SpeakerInput } from '../shared/types.ts'
+import { unescapeXml } from './soap.ts'
 
 /** Raw fields of `httpapi.asp?command=getPlayerStatus`. */
 export interface PlayerStatus {
@@ -27,12 +28,13 @@ const STATUS_MAP: Record<string, PlaybackStatus> = {
 /**
  * Linkplay firmware reports non-ASCII text as a hex encoded UTF-8 string and
  * leaves plain ASCII untouched. Decode only when the result is readable text,
- * so titles such as "unknown" survive.
+ * so titles such as "unknown" survive. Titles we pushed are also stored and
+ * echoed back with their XML entities intact, so unescape them here.
  */
 export function decodeText(raw: string | undefined): string {
   const value = (raw ?? '').trim()
   if (!value || value.length < 4 || value.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(value)) {
-    return value
+    return unescapeXml(value)
   }
 
   const bytes = new Uint8Array(value.length / 2)
@@ -43,9 +45,9 @@ export function decodeText(raw: string | undefined): string {
   try {
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
     // Control characters mean the payload was a plain string that happened to be hex-shaped.
-    return hasControlCharacters(text) ? value : text
+    return hasControlCharacters(text) ? value : unescapeXml(text)
   } catch {
-    return value
+    return unescapeXml(value)
   }
 }
 
