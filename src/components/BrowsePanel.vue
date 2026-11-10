@@ -373,6 +373,9 @@ watch(query, (value) => {
         void loadLibrary(true)
       } else {
         void loadAlbums(true)
+        if (query.value.trim()) {
+          void loadLibrary(true)
+        }
       }
     }, 300)
     return
@@ -683,6 +686,22 @@ function meta(station: RadioStation): string {
             @open="openAlbum"
             @more="loadMoreAlbums"
           />
+
+          <template v-if="query.trim()">
+            <p v-if="libraryError" class="error" role="alert">{{ libraryError }}</p>
+            <LibraryPanel
+              :entries="library.entries"
+              :total="library.total"
+              :media-base-url="library.mediaBaseUrl"
+              :query="query"
+              :busy="busyUrl !== null"
+              :loading="libraryLoading"
+              @play="playLibrary"
+              @queue="addTrackToQueue"
+              @next="playTrackNext"
+              @more="loadMoreLibrary"
+            />
+          </template>
         </template>
       </template>
 

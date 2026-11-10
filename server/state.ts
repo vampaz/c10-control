@@ -21,6 +21,10 @@ export class SpeakerPoller {
   onState: ((state: SpeakerState) => void) | null = null
   /** Resolves cover art for local library files, which carry no DIDL artwork. */
   artworkFor: ((url: string) => Promise<string | null>) | null = null
+  /** Reports the position of finite tracks so they can resume later. */
+  onPosition: ((url: string, position: number, duration: number, ended: boolean) => void) | null = null
+  /** Returns the saved position for a track, or null to start at zero. */
+  resumeFor: ((url: string) => number | null) | null = null
   private state: SpeakerState = emptySpeakerState()
   private readonly listeners = new Set<Listener>()
   private timer: ReturnType<typeof setInterval> | null = null
@@ -128,6 +132,11 @@ export class SpeakerPoller {
         updatedAt: Date.now(),
         error: null,
       }
+
+      if (!status.isLive && status.duration > 0 && this.media.url) {
+        const ended = status.status === 'stopped' || status.position >= status.duration - 1
+        this.onPosition?.(this.media.url, status.position, status.duration, ended)
+      }
     } catch (error) {
       this.misses += 1
       if (this.misses >= MISSES_BEFORE_OFFLINE) {
@@ -211,6 +220,12 @@ export class SpeakerPoller {
   /** Pushes a stream or file to the speaker and starts it. */
   async playTarget(target: PlayTarget): Promise<void> {
     await this.device.playTarget(target)
+    if (!target.isLive && this.resumeFor) {
+      const position = this.resumeFor(target.url)
+      if (position !== null && position > 0) {
+        await this.device.seek(position).catch(() => undefined)
+      }
+    }
     await this.refreshAfterCommand()
   }
 

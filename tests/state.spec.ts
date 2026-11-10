@@ -47,7 +47,9 @@ function fakeDevice(options: FakeDeviceOptions = {}) {
     }))),
     getTransportState: vi.fn(async (): Promise<PlaybackStatus> => 'playing'),
     play: vi.fn(async () => undefined),
+    playTarget: vi.fn(async () => undefined),
     pause: vi.fn(async () => undefined),
+    seek: vi.fn(async (_seconds: number) => undefined),
     setVolume: vi.fn(async (_level: number) => undefined),
     setMute: vi.fn(async (_muted: boolean) => undefined),
   }
@@ -99,6 +101,22 @@ describe('SpeakerPoller.refresh', () => {
 
     expect(poller.current.connected).toBe(true)
     expect(poller.current.playback.artworkUrl).toBeNull()
+  })
+
+  it('reports positions and resumes a saved one before playback', async () => {
+    const status = async () => playerStatus({ mode: 2, duration: 200, position: 30, isLive: false })
+    const { device, calls } = fakeDevice({ status })
+    const poller = new SpeakerPoller(device)
+    const seen: number[] = []
+    poller.onPosition = (_url, position) => seen.push(position)
+
+    await poller.refresh()
+    expect(seen).toContain(30)
+
+    poller.resumeFor = () => 42
+    await poller.playTarget({ url: 'http://192.168.1.135:8787/api/library/file?library=main&path=a.mp3', isLive: false })
+
+    expect(calls.seek).toHaveBeenCalledWith(42)
   })
 
   it('refetches media when a track restarts under the same title', async () => {

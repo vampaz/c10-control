@@ -8,6 +8,7 @@ import { FavoriteStore } from './favorites.ts'
 import { FolderBrowser } from './folders.ts'
 import { LibraryService } from './library.ts'
 import { PlaylistStore } from './playlists.ts'
+import { PositionStore } from './positions.ts'
 import { PresetStore } from './presets.ts'
 import { QueueController } from './queue.ts'
 import { searchStations } from './radio.ts'
@@ -29,8 +30,11 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
   const favorites = new FavoriteStore(getDataDirectory())
   const presets = new PresetStore(getDataDirectory())
   const playlists = new PlaylistStore(getDataDirectory())
+  const positions = new PositionStore(getDataDirectory())
   const library = new LibraryService(loadConfig, port)
   poller.artworkFor = (url) => library.artworkForPlayback(url)
+  poller.onPosition = (url, position, duration, ended) => positions.record(url, position, duration, ended)
+  poller.resumeFor = (url) => positions.resume(url)
   library.warmup()
   const folders = new FolderBrowser(loadConfig)
   const queue = new QueueController(

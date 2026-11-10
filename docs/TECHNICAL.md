@@ -80,6 +80,7 @@ The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs 
 | `server/playlists.ts` | Named playlists in `.data/playlists.json` |
 | `server/library.ts` | Multi-folder index, safe path resolution, Range streaming, cover art, folder playback and tag lookup |
 | `server/tags.ts` | FLAC, ID3 and MP4 text tag reader |
+| `server/thumbs.ts` | Square WebP cover thumbnails through sharp |
 | `server/folders.ts` | Read-only directory listing for the settings folder browser |
 | `server/queue.ts` | App-side queue and auto-advance |
 | `server/sleep.ts` | Sleep timer with fade-out and volume restore |
@@ -201,6 +202,8 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `.data/playlists.json` | Named playlists and their tracks |
 | `.data/queue.json` | Current queue, active track, repeat and shuffle |
 | `.data/album-tags.json` | Album and artist tags per folder, rebuilt when a first track changes |
+| `.data/positions.json` | Resume positions for finite tracks |
+| `.data/thumbs/` | Cached WebP cover thumbnails |
 
 All four live in the `c10-data` volume at `/data` inside the container. The `.data` directory is ignored by git. No library is configured by default: add folders in the settings dialog, or set `C10_LIBRARY_DIR` / `C10_LIBRARY_DIRS` as deployment defaults.
 
