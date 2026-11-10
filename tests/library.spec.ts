@@ -332,6 +332,25 @@ describe('LibraryService tags', () => {
     expect(albums.albums[0]).toMatchObject({ name: 'Tag Album', artist: 'Tag Artist' })
   })
 
+  it('names a new album from tags on the first request', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'c10-fresh-tags-'))
+    directories.push(root)
+    mkdirSync(join(root, 'Fresh'))
+    writeFileSync(join(root, 'Fresh', '01.mp3'), taggedMp3('A title', 'Fresh Artist', 'Fresh Album'))
+    const config: AppConfig = {
+      host: '192.168.1.100',
+      httpPort: 80,
+      upnpPort: 49152,
+      libraries: [{ id: 'main', name: 'Main', path: root }],
+      browseRoots: [],
+      mediaBaseUrl: 'http://192.168.1.135:5173',
+    }
+
+    const albums = await new LibraryService(() => config, 5173).albums({ libraryId: 'main' })
+
+    expect(albums.albums[0]).toMatchObject({ name: 'Fresh Album', artist: 'Fresh Artist' })
+  })
+
   it('merges folders that share an album tag into one album', async () => {
     const root = mkdtempSync(join(tmpdir(), 'c10-merge-lib-'))
     directories.push(root)

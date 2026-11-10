@@ -198,6 +198,7 @@ export class LibraryService {
   private readonly tagCache = new Map<string, { at: number; tags: TrackTags }>()
   private readonly albumTags = new Map<string, AlbumTagEntry>()
   private readonly scanning = new Map<string, Promise<LibraryFile[]>>()
+  private tagRefresh: Promise<void> | null = null
   private readonly getConfig: () => AppConfig
   private readonly port: number
 
@@ -213,7 +214,10 @@ export class LibraryService {
       for (const library of this.getConfig().libraries) {
         await this.files(library.path).catch(() => undefined)
       }
-      await this.refreshAlbumTags().catch(() => undefined)
+      this.scheduleTagRefresh()
+      if (this.tagRefresh) {
+        await this.tagRefresh
+      }
     })()
   }
 
@@ -297,6 +301,16 @@ export class LibraryService {
 
     const entries = scanned.flatMap(({ library, files }) => this.albumIndex(library, files))
 
+    const firstPaths = new Map<string, string>()
+    for (const { library, files } of scanned) {
+      for (const file of files) {
+        const key = `${library.id}|${albumDir(dirname(file.path))}`
+        if (!firstPaths.has(key)) {
+          firstPaths.set(key, file.path)
+        }
+      }
+    }
+
     const merged = new Map<string, AlbumIndexEntry>()
     for (const entry of entries) {
       const tag = this.albumTags.get(`${entry.album.libraryId}|${entry.album.path}`)
@@ -335,13 +349,60 @@ export class LibraryService {
       .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' })
         || left.libraryName.localeCompare(right.libraryName))
 
+    const page = albums.slice(offset, offset + limit)
+    // New folders are named from their tags on first sight, not after a restart.
+    await this.ensurePageTags(page, firstPaths)
+
     return {
       libraries,
-      albums: albums.slice(offset, offset + limit),
+      albums: page,
       total: albums.length,
       query,
       limit,
       offset,
+    }
+  }
+
+  /** Reads tags for page albums that the background index has not seen yet. */
+  private async ensurePageTags(albums: LibraryAlbum[], firstPaths: Map<string, string>): Promise<void> {
+    const missing = albums.filter((album) => !this.albumTags.has(`${album.libraryId}|${album.path}`))
+    if (!missing.length) {
+      return
+    }
+
+    const config = this.getConfig()
+    let changed = false
+    for (const album of missing) {
+      const key = `${album.libraryId}|${album.path}`
+      const first = firstPaths.get(key)
+      const library = config.libraries.find((entry) => entry.id === album.libraryId)
+      if (!first || !library) {
+        continue
+      }
+      const filePath = join(library.path, first)
+      const info = await stat(filePath).catch(() => null)
+      if (!info) {
+        continue
+      }
+      const tags = await this.tagsFor(filePath)
+      this.albumTags.set(key, {
+        at: info.mtimeMs,
+        album: tags.album,
+        albumArtist: tags.albumArtist,
+        artist: tags.artist,
+      })
+      changed = true
+      if (tags.album) {
+        album.name = tags.album
+      }
+      const artist = tags.albumArtist || tags.artist
+      if (artist) {
+        album.artist = artist
+      }
+    }
+
+    if (changed) {
+      this.saveAlbumTags()
     }
   }
 
@@ -690,6 +751,18 @@ export class LibraryService {
     return tags
   }
 
+  /** Collapses concurrent tag-index rebuilds into one. */
+  private scheduleTagRefresh(): void {
+    if (this.tagRefresh) {
+      return
+    }
+    this.tagRefresh = this.refreshAlbumTags()
+      .catch(() => undefined)
+      .finally(() => {
+        this.tagRefresh = null
+      })
+  }
+
   /** Rebuilds the persisted folder-to-album tag index; also used by warmup. */
   async refreshAlbumTags(): Promise<void> {
     const config = this.getConfig()
@@ -784,6 +857,8 @@ export class LibraryService {
     const scanning = scan(root)
       .then((files) => {
         this.cache.set(root, { at: Date.now(), files })
+        // A fresh listing may contain new folders; index their tags too.
+        this.scheduleTagRefresh()
         return files
       })
       .finally(() => {

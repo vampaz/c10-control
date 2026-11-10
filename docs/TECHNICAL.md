@@ -215,7 +215,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `.data/presets.json` | Six preset slots |
 | `.data/playlists.json` | Named playlists and their tracks |
 | `.data/queue.json` | Current queue, active track, repeat and shuffle |
-| `.data/album-tags.json` | Album and artist tags per folder, rebuilt when a first track changes |
+| `.data/album-tags.json` | Album and artist tags per folder, read on first view and refreshed after a scan |
 | `.data/positions.json` | Resume positions for finite tracks |
 | `.data/thumbs/` | Cached WebP cover thumbnails |
 
@@ -235,7 +235,7 @@ The library path is saved in `config.json`, but the folder contents are not. In 
 - **The queue is persisted.** `.data/queue.json` keeps the list, the active track, repeat and shuffle; the speaker keeps playing the current track while the server restarts.
 - **Play on speaker moves ownership.** The list is copied to the device's own PlayQueue and the app queue is cleared, so the device handles next and previous. The app does not mirror the device queue afterwards.
 - **Installation needs HTTPS.** Android offers installation only on a secure origin. The LAN URL over plain HTTP works but cannot be installed; Serve it over HTTPS for the install prompt.
-- **Library scans are cached for five minutes.** New files appear after the cache expires or after a restart. Album tag names are indexed at startup, so a new folder keeps its folder name until the service restarts.
+- **Library scans are cached for five minutes.** New files appear after the cache expires or after a restart. Album tags are read for page albums on first sight and the whole index refreshes after a scan, so a new folder is named from its tags without a restart.
 - **Local files need a speaker-reachable URL.** The speaker fetches the file itself, so `localhost` will not work. The app detects an address on the speaker's subnet, and `C10_MEDIA_URL` overrides it for Docker bridge networks. Docker compose mounts `C10_MUSIC_ROOT` read-only at `/host/music` and exposes it through the settings folder browser; paths outside that mount are not visible to the container.
 - **Sleep timer, presets and playlists are app-side.** They run in this server, not on the speaker, and stop if the server stops.
 - **Discovery needs multicast.** If SSDP is blocked on your network, or the app runs in a Docker bridge network, enter the address by hand or set `C10_HOST`.
