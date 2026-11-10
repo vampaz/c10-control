@@ -42,6 +42,13 @@ const INPUTS: { value: SpeakerInput; label: string }[] = [
   gap: 10px;
 }
 
+@media (max-width: 520px) {
+  .inputs {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
 .label {
   font-size: 0.7rem;
   letter-spacing: 0.14em;

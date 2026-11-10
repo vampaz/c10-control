@@ -102,6 +102,15 @@ The **Playlists** tab creates, renames and deletes lists. Press **Add the curren
 - **Sleep**: choose 15, 30, 45 or 60 minutes. The volume fades out over the last 20 seconds, then playback pauses.
 - **Input**: switch between Wi-Fi, Bluetooth, Aux and Optical. Switching inputs stops the current stream.
 
+### Install as an app
+
+The app ships a web manifest, icons and a standalone layout.
+
+- **iPhone and iPad:** open it in Safari, tap **Share**, then **Add to Home Screen**. It opens full screen. iOS does not run service workers on plain HTTP, so the shell is not cached offline.
+- **Android:** Chrome offers **Install app** only when the page is served over HTTPS (or localhost). On a plain LAN address the app still works, but Chrome will not offer installation. A reverse proxy with a trusted certificate, or Tailscale Serve, gives you HTTPS on a private network.
+
+The service worker caches the app shell once it runs. API requests are never cached.
+
 ### Keyboard
 
 | Key | Action |

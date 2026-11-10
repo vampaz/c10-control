@@ -97,6 +97,11 @@ a:focus-visible {
   margin-inline: auto;
   min-height: 100svh;
   padding: clamp(20px, 3.6vw, 40px);
+  /* Standalone mode on a phone draws under the notch and home bar. */
+  padding-top: max(clamp(20px, 3.6vw, 40px), env(safe-area-inset-top));
+  padding-bottom: max(clamp(20px, 3.6vw, 40px), env(safe-area-inset-bottom));
+  padding-left: max(clamp(20px, 3.6vw, 40px), env(safe-area-inset-left));
+  padding-right: max(clamp(20px, 3.6vw, 40px), env(safe-area-inset-right));
   display: flex;
   flex-direction: column;
   gap: clamp(20px, 3vh, 32px);
@@ -423,12 +428,39 @@ a:focus-visible {
 }
 
 @media (max-width: 860px) {
+  .console {
+    justify-content: flex-start;
+    padding-top: 6px;
+  }
+
   .topbar {
     flex-wrap: wrap;
   }
 
   .status {
     font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar {
+    gap: 12px;
+  }
+
+  .topbar-side {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .status {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+  }
+
+  .footer {
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
   }
 }
 

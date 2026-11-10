@@ -1088,6 +1088,7 @@ function meta(station: RadioStation): string {
   .drawer {
     width: 100%;
     border-left: 0;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

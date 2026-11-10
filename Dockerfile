@@ -8,6 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
 COPY tsconfig.json vite.config.ts index.html ./
+COPY public ./public
 COPY shared ./shared
 COPY src ./src
 COPY server ./server

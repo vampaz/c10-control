@@ -106,6 +106,20 @@ function display(value: string): string {
   color: var(--ink-faint);
 }
 
+@media (max-width: 520px) {
+  .title {
+    font-size: clamp(1.45rem, 7vw, 1.9rem);
+  }
+
+  .eyebrow {
+    margin-bottom: 8px;
+  }
+
+  .artist {
+    margin-top: 8px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .live::before {
     animation: none;

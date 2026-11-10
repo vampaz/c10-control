@@ -248,7 +248,7 @@ docker-compose.yml        container definition: port, volumes, env, health
 LICENSE                   MIT
 SECURITY.md               security notes for a LAN-only app
 docs/                     user and technical documentation
-public/                   favicon and robots.txt
+public/                   favicon, PWA icons, manifest and service worker
 server/
   index.ts        production entry point (static files + API)
   dev.ts          dev entry point (Vite middleware + API)
