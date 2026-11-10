@@ -16,6 +16,9 @@ function useTempDataDir(): string {
 afterEach(() => {
   delete process.env.C10_DATA_DIR
   delete process.env.C10_HOST
+  delete process.env.C10_LIBRARY_DIR
+  delete process.env.C10_LIBRARY_DIRS
+  delete process.env.C10_MEDIA_URL
   for (const directory of directories.splice(0)) {
     rmSync(directory, { recursive: true, force: true })
   }
@@ -84,7 +87,28 @@ describe('saveConfig', () => {
 
   it('falls back to defaults when nothing is stored', () => {
     useTempDataDir()
-    expect(loadConfig()).toMatchObject({ host: '192.168.1.100', httpPort: 80, upnpPort: 49152, pinnedHost: false })
+    expect(loadConfig()).toMatchObject({
+      host: '192.168.1.100',
+      httpPort: 80,
+      upnpPort: 49152,
+      libraries: [],
+      mediaBaseUrl: '',
+      pinnedHost: false,
+    })
+  })
+
+  it('does not configure a library by default', () => {
+    useTempDataDir()
+    expect(loadConfig().libraries).toEqual([])
+  })
+
+  it('accepts a library default from the environment', () => {
+    useTempDataDir()
+    process.env.C10_LIBRARY_DIR = '/music'
+
+    const config = loadConfig()
+    expect(config.libraries).toHaveLength(1)
+    expect(config.libraries[0].path).toBe('/music')
   })
 
   it('lets the environment override the default host', () => {

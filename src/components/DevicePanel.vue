@@ -140,7 +140,7 @@ async function save(): Promise<void> {
         </ul>
         <div class="library-add">
           <input v-model="newName" type="text" placeholder="Name (optional)" autocomplete="off" />
-          <input v-model="newPath" type="text" placeholder="/music" autocomplete="off" spellcheck="false" />
+          <input v-model="newPath" type="text" placeholder="/path/to/music" autocomplete="off" spellcheck="false" />
           <button type="button" class="ghost" :disabled="!newPath.trim()" @click="addLibrary">Add</button>
         </div>
       </div>

@@ -50,7 +50,7 @@ cp .env.example .env      # set C10_HOST and C10_MUSIC_DIR
 docker compose up -d --build
 ```
 
-Open `http://<server>:8787`. Saved settings live in the `c10-data` volume. Music is read from `${C10_MUSIC_DIR}` (default `./music`) at `/music` inside the container.
+Open `http://<server>:8787`. Saved settings live in the `c10-data` volume. Your music folder is mounted at `/music` inside the container, but no library is configured by default: add `/music` in **Speaker settings → Music folders**, or set `C10_LIBRARY_DIR=/music` in `.env` to preconfigure it.
 
 If you use the default bridge network, the speaker cannot fetch local files from the container. Set `C10_MEDIA_URL=http://<host-lan-ip>:8787` in `.env`, or use host networking on Linux. See the [configuration](#configuration) and [troubleshooting](#troubleshooting) sections.
 
@@ -63,7 +63,7 @@ The settings dialog covers the speaker address, music folders and the media URL.
 | `C10_HOST` | `192.168.1.100` | Speaker address |
 | `C10_HTTP_PORT` | `80` | `httpapi.asp` port |
 | `C10_UPNP_PORT` | `49152` | UPnP control port |
-| `C10_LIBRARY_DIR` | empty | One folder scanned for local audio |
+| `C10_LIBRARY_DIR` | empty | One folder scanned for local audio; unset means no library until you add one |
 | `C10_LIBRARY_DIRS` | empty | Comma-separated folders, adds several libraries |
 | `C10_MEDIA_URL` | auto | Base URL the speaker uses to fetch local files |
 | `PORT` | `5173` dev, `8787` start | Port this app listens on |

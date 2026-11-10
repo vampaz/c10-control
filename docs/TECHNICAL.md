@@ -190,7 +190,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `.data/presets.json` | Six preset slots |
 | `.data/playlists.json` | Named playlists and their tracks |
 
-All four live in the `c10-data` volume at `/data` inside the container. The `.data` directory is ignored by git.
+All four live in the `c10-data` volume at `/data` inside the container. The `.data` directory is ignored by git. No library is configured by default: add folders in the settings dialog, or set `C10_LIBRARY_DIR` / `C10_LIBRARY_DIRS` as deployment defaults.
 
 ## Limits
 
