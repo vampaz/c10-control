@@ -99,6 +99,7 @@ function makeDeps(overrides: Partial<AppDependencies> = {}): AppDependencies {
     stream: vi.fn(() => true),
     resolveTarget: (target: PlayTarget) => target,
     albumTargets: vi.fn(async () => null),
+    thumbnail: vi.fn(async () => null),
   } as unknown as LibraryService
 
   const folders = {
@@ -754,6 +755,18 @@ describe('library artwork', () => {
     expect(response.headers.get('content-type')).toBe('image/jpeg')
     expect(artwork).toHaveBeenCalledWith('main', 'sub/b.flac')
     expect((await response.arrayBuffer()).byteLength).toBe(4)
+  })
+
+  it('serves a resized thumbnail when a width is requested', async () => {
+    const thumbnail = vi.fn(async () => ({ data: Buffer.from([1, 2, 3]), mime: 'image/webp' }))
+    const library = { thumbnail } as unknown as LibraryService
+    const { url } = await start(makeDeps({ library }))
+
+    const response = await fetch(`${url}/api/library/art?library=main&path=a.mp3&w=320`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('image/webp')
+    expect(thumbnail).toHaveBeenCalledWith('main', 'a.mp3', 320)
   })
 
   it('answers 404 when a file has no art', async () => {

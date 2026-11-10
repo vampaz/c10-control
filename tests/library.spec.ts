@@ -160,7 +160,7 @@ describe('LibraryService.artworkUrl', () => {
     const library = new LibraryService(() => config, 5173)
 
     expect(library.artworkUrl('http://192.168.1.135:5173/api/library/file?library=main&path=sub%2Fb.flac'))
-      .toBe('/api/library/art?library=main&path=sub%2Fb.flac')
+      .toBe('/api/library/art?library=main&path=sub%2Fb.flac&w=320')
   })
 
   it('ignores streams, other paths and empty urls', () => {
@@ -298,7 +298,7 @@ describe('LibraryService.artworkForPlayback', () => {
     const withArt = await service.artworkForPlayback('http://192.168.1.135:5173/api/library/file?library=main&path=Album%2Ftrack.mp3')
     const withoutArt = await service.artworkForPlayback('http://192.168.1.135:5173/api/library/file?library=main&path=a.mp3')
 
-    expect(withArt).toBe('/api/library/art?library=main&path=Album%2Ftrack.mp3')
+    expect(withArt).toBe('/api/library/art?library=main&path=Album%2Ftrack.mp3&w=320')
     expect(withoutArt).toBeNull()
   })
 })

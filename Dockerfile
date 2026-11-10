@@ -13,12 +13,19 @@ COPY src ./src
 COPY server ./server
 RUN npm run build
 
-# Runtime stage: the server has no runtime dependencies and runs TypeScript
-# through Node's built-in type stripping, so no node_modules is needed here.
+# Production dependencies: the runtime needs sharp for cover thumbnails.
+FROM node:24-alpine AS deps
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Runtime stage: TypeScript runs through Node's built-in type stripping.
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
+COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY shared ./shared
 COPY server ./server

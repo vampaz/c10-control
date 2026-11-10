@@ -301,10 +301,12 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
       }
 
       if (pathname === '/api/library/art' && (method === 'GET' || method === 'HEAD')) {
-        const art = await deps.library.artwork(
-          url.searchParams.get('library') ?? '',
-          url.searchParams.get('path') ?? '',
-        )
+        const library = url.searchParams.get('library') ?? ''
+        const path = url.searchParams.get('path') ?? ''
+        const width = Number(url.searchParams.get('w') ?? '')
+        const art = Number.isFinite(width) && width > 0
+          ? await deps.library.thumbnail(library, path, width)
+          : await deps.library.artwork(library, path)
         if (!art) {
           sendJson(response, 404, { error: 'Artwork not found' })
           return

@@ -57,7 +57,7 @@ flowchart LR
 
 ### Why the server exists
 
-The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs raw UDP, and a browser cannot keep one shared poll loop across tabs. The Node process solves all three and stays dependency-free.
+The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs raw UDP, and a browser cannot keep one shared poll loop across tabs. The Node process solves all three; it uses Node built-ins plus `sharp` for cover thumbnails.
 
 ### Components
 
@@ -166,7 +166,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `GET` | `/api/library/albums` | Album folders with track counts and cover art, `?q=&library=&limit=&offset=` |
 | `GET` | `/api/library/file?library=&path=` | Stream a file, with Range support |
 | `GET` | `/api/library/art?library=&path=` | Cover art from the file's tags or its album folder |
-| `POST` | `/api/library/play` | Play `{ library, path, shuffle? }` with the rest of its folder queued |
+| `POST` | `/api/library/play` | Play `{ library, path }` or `{ library, dirs, shuffle? }` with the folder queued |
 | `GET` | `/api/folders?path=` | List directories under the browse roots |
 | `GET` | `/api/playlists` | List playlists |
 | `POST` | `/api/playlists` | Create `{ name }` |

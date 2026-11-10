@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { createReadStream, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs'
-import { readdir, stat } from 'node:fs/promises'
+import { readdir, readFile, stat, mkdir, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import type { AlbumListing, AppConfig, LibraryAlbum, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
@@ -8,6 +8,7 @@ import { readCoverArt, type CoverArt } from './artwork.ts'
 import { getDataDirectory } from './config.ts'
 import { detectMediaBaseUrl } from './network.ts'
 import { readTrackTags, type TrackTags } from './tags.ts'
+import { thumbnail as makeThumbnail } from './thumbs.ts'
 
 const AUDIO_EXTENSIONS = new Set([
   '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.oga', '.opus', '.wav', '.wma',
@@ -374,7 +375,7 @@ export class LibraryService {
           libraryId: library.id,
           libraryName: library.name,
           trackCount: groupFiles.length,
-          artworkUrl: `/api/library/art?library=${encodeURIComponent(library.id)}&path=${encodeURIComponent(groupFiles[0].path)}`,
+          artworkUrl: `/api/library/art?library=${encodeURIComponent(library.id)}&path=${encodeURIComponent(groupFiles[0].path)}&w=320`,
         },
         search: fold(`${name} ${library.name} ${groupFiles.map((file) => file.name).join(' ')}`),
       }
@@ -594,6 +595,38 @@ export class LibraryService {
   }
 
   /**
+   * A cached square thumbnail of the file's cover at `width`, resized to WebP.
+   * Keys include the file mtime, so a replaced cover gets a fresh entry.
+   */
+  async thumbnail(libraryId: string, relativePath: string, width: number): Promise<CoverArt | null> {
+    const file = this.resolveFile(libraryId, relativePath)
+    if (!file) {
+      return null
+    }
+    const size = Math.min(600, Math.max(96, Math.trunc(width)))
+    const info = await stat(file).catch(() => null)
+    if (!info) {
+      return null
+    }
+
+    const key = createHash('sha1').update(`${file}|${info.mtimeMs}|${size}`).digest('hex')
+    const cachedPath = join(getDataDirectory(), 'thumbs', `${key}.webp`)
+    const cached = await readFile(cachedPath).catch(() => null)
+    if (cached) {
+      return { data: cached, mime: 'image/webp' }
+    }
+
+    const art = await readCoverArt(file).catch(() => null)
+    if (!art) {
+      return null
+    }
+    const resized = await makeThumbnail(art, size)
+    await mkdir(join(getDataDirectory(), 'thumbs'), { recursive: true }).catch(() => undefined)
+    await writeFile(cachedPath, resized.data).catch(() => undefined)
+    return resized
+  }
+
+  /**
    * Maps a playing library file URL to its artwork endpoint. Local files have no
    * DIDL artwork, so the poller asks for one when the speaker reports none.
    */
@@ -615,7 +648,7 @@ export class LibraryService {
     if (!library || !path) {
       return null
     }
-    return `/api/library/art?library=${encodeURIComponent(library)}&path=${encodeURIComponent(path)}`
+    return `/api/library/art?library=${encodeURIComponent(library)}&path=${encodeURIComponent(path)}&w=320`
   }
 
   private async entry(mediaBaseUrl: string, library: LibraryRoot, file: LibraryFile): Promise<LibraryEntry | null> {
