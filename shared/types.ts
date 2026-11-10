@@ -189,6 +189,8 @@ export interface QueueSnapshot {
   activeIndex: number | null
   repeat: RepeatMode
   shuffle: boolean
+  /** Item positions in play order. */
+  order: number[]
 }
 
 export interface PlaylistItem extends PlayTarget {

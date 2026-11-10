@@ -9,8 +9,8 @@ const ITEMS: QueueItem[] = [
   { id: 'b', url: 'http://example.com/b.mp3', title: 'Second', isLive: false },
 ]
 
-function mountPanel(items: QueueItem[] = ITEMS, activeIndex: number | null = 0) {
-  return mount(QueuePanel, { props: { items, activeIndex, busy: false } })
+function mountPanel(items: QueueItem[] = ITEMS, activeIndex: number | null = 0, order: number[] = [0, 1]) {
+  return mount(QueuePanel, { props: { items, activeIndex, order, busy: false } })
 }
 
 describe('QueuePanel', () => {
@@ -36,6 +36,24 @@ describe('QueuePanel', () => {
     await wrapper.findAll('.row-main')[1].trigger('click')
 
     expect(wrapper.emitted('play')).toEqual([[1]])
+    wrapper.unmount()
+  })
+
+  it('renders the shuffled play order', () => {
+    const wrapper = mountPanel(ITEMS, 0, [1, 0])
+
+    expect(wrapper.findAll('.row-name').map((row) => row.text())).toEqual(['Second', 'First'])
+    wrapper.unmount()
+  })
+
+  it('emits a move when one row is dropped on another', async () => {
+    const wrapper = mountPanel()
+    const rows = wrapper.findAll('.row')
+
+    await rows[0].trigger('dragstart')
+    await rows[1].trigger('drop')
+
+    expect(wrapper.emitted('move')).toEqual([[0, 1]])
     wrapper.unmount()
   })
 

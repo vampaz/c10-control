@@ -9,6 +9,8 @@ const removeFavorite = vi.fn(async (_id: string): Promise<Favorite[]> => [])
 const playStream = vi.fn(async (_target: unknown) => undefined)
 const playLibraryFolder = vi.fn(async (_library: string, _path: string, _shuffle?: boolean): Promise<QueueSnapshot> => emptyQueue)
 const playLibraryAlbum = vi.fn(async (_library: string, _dir: string, _shuffle?: boolean): Promise<QueueSnapshot> => emptyQueue)
+const playNext = vi.fn(async (_target: unknown): Promise<QueueSnapshot> => emptyQueue)
+const moveQueue = vi.fn(async (_from: number, _to: number): Promise<QueueSnapshot> => emptyQueue)
 const subscribeState = vi.fn((_onState: (state: unknown) => void, _onStatus: (open: boolean) => void) => () => undefined)
 const searchRadio = vi.fn(async (_query: string) => [])
 const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
@@ -20,7 +22,7 @@ const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
   offset: 0,
   mediaBaseUrl: '',
 }))
-const emptyQueue: QueueSnapshot = { items: [], activeIndex: null, repeat: 'off', shuffle: false }
+const emptyQueue: QueueSnapshot = { items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] }
 const ALBUM = {
   id: 'al',
   name: 'Album',
@@ -58,6 +60,8 @@ vi.mock('@/api', () => ({
   playStream: (target: unknown) => playStream(target),
   playLibraryFolder: (...args: [string, string, boolean?]) => playLibraryFolder(...args),
   playLibraryAlbum: (...args: [string, string, boolean?]) => playLibraryAlbum(...args),
+  playNext: (target: unknown) => playNext(target),
+  moveQueue: (from: number, to: number) => moveQueue(from, to),
   subscribeState: (onState: (state: unknown) => void, onStatus: (open: boolean) => void) => subscribeState(onState, onStatus),
   searchRadio: (query: string) => searchRadio(query),
   fetchLibrary: () => fetchLibrary(),

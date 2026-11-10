@@ -207,7 +207,7 @@ describe('QueueController', () => {
     expect(queue.snapshot().activeIndex).toBe(0)
 
     queue.clear()
-    expect(queue.snapshot()).toEqual({ items: [], activeIndex: null, repeat: 'off', shuffle: false })
+    expect(queue.snapshot()).toEqual({ items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] })
   })
 
   it('advances once when a finite track ends', async () => {
@@ -275,6 +275,35 @@ describe('QueueController persistence', () => {
     await queue.replace([FIRST])
 
     expect(played.at(-1)?.url).toBe('http://current/api/library/file')
+  })
+
+  it('moves an item to another position', async () => {
+    const { queue } = player()
+    await queue.replace([FIRST, SECOND, THIRD])
+
+    const snapshot = queue.move(2, 0)
+
+    expect(snapshot.items.map((item) => item.title)).toEqual(['Third', 'First', 'Second'])
+    expect(snapshot.order).toEqual([0, 1, 2])
+  })
+
+  it('keeps the active index on the moved item', async () => {
+    const { queue } = player()
+    await queue.replace([FIRST, SECOND, THIRD], 1)
+
+    queue.move(1, 2)
+
+    expect(queue.snapshot().activeIndex).toBe(2)
+  })
+
+  it('inserts a track directly after the active one', async () => {
+    const { queue } = player()
+    await queue.replace([FIRST, SECOND], 0)
+
+    const snapshot = queue.insertNext(THIRD)
+
+    expect(snapshot.items.map((item) => item.title)).toEqual(['First', 'Third', 'Second'])
+    expect(snapshot.activeIndex).toBe(0)
   })
 
   it('restores the queue, active track and mode from disk', async () => {

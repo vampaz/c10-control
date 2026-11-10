@@ -390,6 +390,23 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
         return
       }
 
+      if (pathname === '/api/queue/next-up' && method === 'POST') {
+        sendJson(response, 200, deps.queue.insertNext(parsePlayTarget(await readJsonBody(request))))
+        return
+      }
+
+      if (pathname === '/api/queue/move' && method === 'POST') {
+        const body = await readJsonBody(request)
+        const patch = typeof body === 'object' && body !== null ? body as { from?: unknown; to?: unknown } : {}
+        const from = Number(patch.from)
+        const to = Number(patch.to)
+        if (!Number.isInteger(from) || !Number.isInteger(to)) {
+          throw new Error('Move needs integer from and to positions')
+        }
+        sendJson(response, 200, deps.queue.move(from, to))
+        return
+      }
+
       if (pathname === '/api/queue/next' && method === 'POST') {
         await deps.queue.next()
         sendJson(response, 200, deps.queue.snapshot())

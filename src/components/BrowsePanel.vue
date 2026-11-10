@@ -13,8 +13,10 @@ import {
   fetchPlaylists,
   fetchQueue,
   listFavorites,
+  moveQueue,
   playLibraryAlbum,
   playLibraryFolder,
+  playNext,
   playPlaylist,
   playQueue,
   playStream,
@@ -60,7 +62,7 @@ const albumsLoading = ref(false)
 const albumsError = ref<string | null>(null)
 const albumsLoaded = ref(false)
 const selectedAlbum = ref<LibraryAlbum | null>(null)
-const queue = ref<QueueSnapshot>({ items: [], activeIndex: null, repeat: 'off', shuffle: false })
+const queue = ref<QueueSnapshot>({ items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] })
 const queueError = ref<string | null>(null)
 const playlists = ref<Playlist[]>([])
 const selectedPlaylist = ref('')
@@ -194,6 +196,24 @@ async function addTrackToQueue(entry: LibraryEntry): Promise<void> {
   queueError.value = null
   try {
     queue.value = await addToQueue({ url: entry.url, title: entry.name, isLive: false })
+  } catch (cause) {
+    queueError.value = message(cause)
+  }
+}
+
+async function playTrackNext(entry: LibraryEntry): Promise<void> {
+  queueError.value = null
+  try {
+    queue.value = await playNext({ url: entry.url, title: entry.name, isLive: false })
+  } catch (cause) {
+    queueError.value = message(cause)
+  }
+}
+
+async function moveQueued(from: number, to: number): Promise<void> {
+  queueError.value = null
+  try {
+    queue.value = await moveQueue(from, to)
   } catch (cause) {
     queueError.value = message(cause)
   }
@@ -649,6 +669,7 @@ function meta(station: RadioStation): string {
             :loading="libraryLoading"
             @play="playLibrary"
             @queue="addTrackToQueue"
+            @next="playTrackNext"
             @more="loadMoreLibrary"
           />
         </template>
@@ -670,9 +691,11 @@ function meta(station: RadioStation): string {
         <QueuePanel
           :items="queue.items"
           :active-index="queue.activeIndex"
+          :order="queue.order"
           :busy="busyUrl !== null"
           @play="playQueued"
           @remove="removeQueued"
+          @move="moveQueued"
           @clear="clearQueued"
         />
       </template>

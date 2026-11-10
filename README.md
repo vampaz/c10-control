@@ -92,7 +92,7 @@ The speaker fetches the file from this app, so the app needs a LAN address the s
 
 ### Queue and playlists
 
-The **Queue** tab shows what plays next. Tracks advance automatically when they finish; live radio does not auto-advance. Under the transport, **Repeat** cycles off → all → one, and **Shuffle** plays the queue in a random order. Both keep working when the queue is replaced.
+The **Queue** tab shows what plays next. Tracks advance automatically when they finish; live radio does not auto-advance. Drag a row to reorder the queue, and use the plus and next buttons on a library track to add it or play it next. Under the transport, **Repeat** cycles off → all → one, and **Shuffle** plays the queue in a random order, shown in the Queue tab. Both keep working when the queue is replaced.
 
 The **Playlists** tab creates, renames and deletes lists. Press **Add the current track** to add what is playing, then **Play** to load the list into the queue.
 

@@ -180,6 +180,8 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `DELETE` | `/api/queue` | Clear the queue |
 | `DELETE` | `/api/queue/:id` | Remove a track |
 | `POST` | `/api/queue/play` | Play `{ index }` |
+| `POST` | `/api/queue/next-up` | Insert a track after the active one |
+| `POST` | `/api/queue/move` | Move `{ from, to }` positions |
 | `POST` | `/api/queue/next` | Move forward in the queue |
 | `POST` | `/api/queue/previous` | Move back in the queue |
 | `PUT` | `/api/queue/mode` | Set `{ repeat, shuffle }` |

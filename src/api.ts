@@ -185,6 +185,20 @@ export function clearQueue(): Promise<QueueSnapshot> {
   return request<QueueSnapshot>('/api/queue', { method: 'DELETE' })
 }
 
+export function playNext(target: PlayTarget): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/queue/next-up', {
+    method: 'POST',
+    body: JSON.stringify(target),
+  })
+}
+
+export function moveQueue(from: number, to: number): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/queue/move', {
+    method: 'POST',
+    body: JSON.stringify({ from, to }),
+  })
+}
+
 export function playQueue(index = 0): Promise<QueueSnapshot> {
   return request<QueueSnapshot>('/api/queue/play', {
     method: 'POST',

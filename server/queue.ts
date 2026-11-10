@@ -46,6 +46,7 @@ export class QueueController {
       activeIndex: this.activeIndex,
       repeat: this.repeat,
       shuffle: this.shuffle,
+      order: this.playOrder(),
     }
   }
 
@@ -71,6 +72,51 @@ export class QueueController {
     const target = validateTarget(input)
     this.items.push({ ...target, id: itemId(target.url) })
     this.order.push(this.items.length - 1)
+    this.persist()
+    return this.snapshot()
+  }
+
+  /** Inserts a track directly after the active one, or at the top. */
+  insertNext(input: PlayTarget): QueueSnapshot {
+    const target = validateTarget(input)
+    const index = this.activeIndex === null ? 0 : this.activeIndex + 1
+    this.items.splice(index, 0, { ...target, id: itemId(target.url) })
+    if (this.activeIndex !== null && index <= this.activeIndex) {
+      this.activeIndex += 1
+    }
+    this.buildOrder()
+    this.persist()
+    return this.snapshot()
+  }
+
+  /** Moves one queued item to another position. */
+  move(from: number, to: number): QueueSnapshot {
+    if (!Number.isInteger(from) || !Number.isInteger(to)
+      || from < 0 || from >= this.items.length
+      || to < 0 || to >= this.items.length
+      || from === to) {
+      return this.snapshot()
+    }
+
+    const [item] = this.items.splice(from, 1)
+    this.items.splice(to, 0, item)
+
+    if (this.activeIndex !== null) {
+      let active = this.activeIndex
+      if (active === from) {
+        active = to
+      } else {
+        if (from < active) {
+          active -= 1
+        }
+        if (to <= active) {
+          active += 1
+        }
+      }
+      this.activeIndex = active
+    }
+
+    this.buildOrder()
     this.persist()
     return this.snapshot()
   }

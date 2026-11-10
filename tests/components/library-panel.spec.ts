@@ -79,6 +79,15 @@ describe('LibraryPanel', () => {
     wrapper.unmount()
   })
 
+  it('emits the file to play next', async () => {
+    const wrapper = mountPanel()
+
+    await wrapper.get('.row-next').trigger('click')
+
+    expect(wrapper.emitted('next')).toEqual([[ENTRY]])
+    wrapper.unmount()
+  })
+
   it('asks for more when the page is smaller than the total', async () => {
     const wrapper = mountPanel({ total: 50 })
 

@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   play: [entry: LibraryEntry]
   queue: [entry: LibraryEntry]
+  next: [entry: LibraryEntry]
   more: []
 }>()
 
@@ -63,6 +64,15 @@ function meta(entry: LibraryEntry): string {
           @click="emit('queue', entry)"
         >
           <AppIcon name="plus" :size="14" />
+        </button>
+        <button
+          type="button"
+          class="row-next"
+          :disabled="busy"
+          :aria-label="`Play ${entry.name} next`"
+          @click="emit('next', entry)"
+        >
+          <AppIcon name="next" :size="13" />
         </button>
         <AppIcon name="play" :size="14" class="row-icon" />
       </li>
@@ -164,7 +174,8 @@ function meta(entry: LibraryEntry): string {
   white-space: nowrap;
 }
 
-.row-queue {
+.row-queue,
+.row-next {
   display: grid;
   place-items: center;
   width: 32px;
@@ -176,7 +187,8 @@ function meta(entry: LibraryEntry): string {
   cursor: pointer;
 }
 
-.row-queue:hover {
+.row-queue:hover,
+.row-next:hover {
   color: var(--ink);
 }
 

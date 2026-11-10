@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import type { QueueItem } from '@shared/types'
 import AppIcon from '@/components/AppIcon.vue'
 
-defineProps<{
+const props = defineProps<{
   items: QueueItem[]
   activeIndex: number | null
+  order: number[]
   busy: boolean
 }>()
 
@@ -12,10 +14,35 @@ const emit = defineEmits<{
   play: [index: number]
   remove: [id: string]
   clear: []
+  move: [from: number, to: number]
 }>()
+
+const dragging = ref<number | null>(null)
+
+/** Items in play order; the index stays the real queue position. */
+const rows = computed(() => {
+  const order = props.order.length === props.items.length
+    ? props.order
+    : props.items.map((_, index) => index)
+  return order.flatMap((index) => {
+    const item = props.items[index]
+    return item ? [{ item, index }] : []
+  })
+})
 
 function meta(item: QueueItem): string {
   return item.isLive === false ? 'Track' : 'Live stream'
+}
+
+function onDragStart(index: number): void {
+  dragging.value = index
+}
+
+function onDrop(index: number): void {
+  if (dragging.value !== null && dragging.value !== index) {
+    emit('move', dragging.value, index)
+  }
+  dragging.value = null
 }
 </script>
 
@@ -30,28 +57,33 @@ function meta(item: QueueItem): string {
 
     <ul v-if="items.length" class="list">
       <li
-        v-for="(item, index) in items"
-        :key="item.id"
+        v-for="row in rows"
+        :key="row.item.id"
         class="row"
-        :class="{ active: index === activeIndex }"
+        :class="{ active: row.index === activeIndex, dragging: dragging === row.index }"
+        draggable="true"
+        @dragstart="onDragStart(row.index)"
+        @dragover.prevent
+        @drop="onDrop(row.index)"
+        @dragend="dragging = null"
       >
         <button
           type="button"
           class="row-main"
           :disabled="busy"
-          :aria-current="index === activeIndex ? 'true' : undefined"
-          :aria-label="`Play ${item.title ?? item.url}`"
-          @click="emit('play', index)"
+          :aria-current="row.index === activeIndex ? 'true' : undefined"
+          :aria-label="`Play ${row.item.title ?? row.item.url}`"
+          @click="emit('play', row.index)"
         >
-          <span class="row-name">{{ item.title ?? item.url }}</span>
-          <span class="row-meta">{{ meta(item) }}</span>
+          <span class="row-name">{{ row.item.title ?? row.item.url }}</span>
+          <span class="row-meta">{{ meta(row.item) }}</span>
         </button>
         <button
           type="button"
           class="row-remove"
           :disabled="busy"
-          :aria-label="`Remove ${item.title ?? item.url} from the queue`"
-          @click="emit('remove', item.id)"
+          :aria-label="`Remove ${row.item.title ?? row.item.url} from the queue`"
+          @click="emit('remove', row.item.id)"
         >
           <AppIcon name="close" :size="14" />
         </button>
@@ -92,6 +124,11 @@ function meta(item: QueueItem): string {
   gap: 4px;
   border-radius: 10px;
   transition: background 140ms ease;
+  cursor: grab;
+}
+
+.row.dragging {
+  opacity: 0.5;
 }
 
 .row:hover {
