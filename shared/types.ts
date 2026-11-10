@@ -139,6 +139,29 @@ export interface LibraryEntry {
   url: string
 }
 
+export interface LibraryAlbum {
+  id: string
+  /** Folder name, or the library name for files at the root. */
+  name: string
+  /** Folder path relative to its library. */
+  path: string
+  libraryId: string
+  libraryName: string
+  trackCount: number
+  /** Artwork endpoint for the album's first track. */
+  artworkUrl: string
+}
+
+export interface AlbumListing {
+  libraries: LibraryRoot[]
+  albums: LibraryAlbum[]
+  /** Number of albums that match the query, before the page slice. */
+  total: number
+  query: string
+  limit: number
+  offset: number
+}
+
 export interface LibraryListing {
   libraries: LibraryRoot[]
   entries: LibraryEntry[]

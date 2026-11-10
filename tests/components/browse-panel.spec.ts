@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Favorite, LibraryListing, Playlist, QueueSnapshot } from '@shared/types'
+import type { AlbumListing, Favorite, LibraryListing, Playlist, QueueSnapshot } from '@shared/types'
 
 const favorites = vi.fn<() => Promise<Favorite[]>>()
 const addFavorite = vi.fn(async (_station: unknown): Promise<Favorite[]> => [])
@@ -19,6 +19,23 @@ const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
   mediaBaseUrl: '',
 }))
 const emptyQueue: QueueSnapshot = { items: [], activeIndex: null, repeat: 'off', shuffle: false }
+const ALBUM = {
+  id: 'al',
+  name: 'Album',
+  path: 'Album',
+  libraryId: 'main',
+  libraryName: 'Main',
+  trackCount: 1,
+  artworkUrl: '/api/library/art?library=main&path=Album%2FTrack.mp3',
+}
+const fetchAlbums = vi.fn<() => Promise<AlbumListing>>(async () => ({
+  libraries: [{ id: 'main', name: 'Main', path: '/music' }],
+  albums: [ALBUM],
+  total: 1,
+  query: '',
+  limit: 60,
+  offset: 0,
+}))
 const fetchQueue = vi.fn<() => Promise<QueueSnapshot>>(async () => emptyQueue)
 const addToQueue = vi.fn<(target: unknown) => Promise<QueueSnapshot>>(async () => emptyQueue)
 const removeFromQueue = vi.fn<(id: string) => Promise<QueueSnapshot>>(async () => emptyQueue)
@@ -40,6 +57,7 @@ vi.mock('@/api', () => ({
   playLibraryFolder: (library: string, path: string) => playLibraryFolder(library, path),
   searchRadio: (query: string) => searchRadio(query),
   fetchLibrary: () => fetchLibrary(),
+  fetchAlbums: () => fetchAlbums(),
   fetchQueue: () => fetchQueue(),
   addToQueue: (target: unknown) => addToQueue(target),
   removeFromQueue: (id: string) => removeFromQueue(id),
@@ -163,12 +181,12 @@ describe('BrowsePanel', () => {
     wrapper.unmount()
   })
 
-  it('plays a file from the library tab through its folder', async () => {
+  it('plays a file from an album through its folder', async () => {
     favorites.mockResolvedValue([])
     fetchLibrary.mockResolvedValue({
       libraries: [{ id: 'main', name: 'Main', path: '/music' }],
       mediaBaseUrl: 'http://192.168.1.135:5173',
-      entries: [{ id: 'a', libraryId: 'main', libraryName: 'Main', name: 'Track', path: 'Track.mp3', size: 10, modifiedAt: 1, url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Track.mp3' }],
+      entries: [{ id: 'a', libraryId: 'main', libraryName: 'Main', name: 'Track', path: 'Album/Track.mp3', size: 10, modifiedAt: 1, url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Album%2FTrack.mp3' }],
       total: 1,
       query: '',
       limit: 200,
@@ -178,12 +196,16 @@ describe('BrowsePanel', () => {
 
     await wrapper.findAll('.tabs button')[1].trigger('click')
     await flushPromises()
+    expect(wrapper.text()).toContain('Album')
+
+    await wrapper.get('.card').trigger('click')
+    await flushPromises()
     expect(wrapper.text()).toContain('Track')
 
     await wrapper.get('.row-main').trigger('click')
     await flushPromises()
 
-    expect(playLibraryFolder).toHaveBeenCalledWith('main', 'Track.mp3')
+    expect(playLibraryFolder).toHaveBeenCalledWith('main', 'Album/Track.mp3')
     expect(playStream).not.toHaveBeenCalled()
     wrapper.unmount()
   })
@@ -193,7 +215,7 @@ describe('BrowsePanel', () => {
     fetchLibrary.mockResolvedValue({
       libraries: [{ id: 'main', name: 'Main', path: '/music' }],
       mediaBaseUrl: 'http://192.168.1.135:5173',
-      entries: [{ id: 'a', libraryId: 'main', libraryName: 'Main', name: 'Track', path: 'Track.mp3', size: 10, modifiedAt: 1, url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Track.mp3' }],
+      entries: [{ id: 'a', libraryId: 'main', libraryName: 'Main', name: 'Track', path: 'Album/Track.mp3', size: 10, modifiedAt: 1, url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Album%2FTrack.mp3' }],
       total: 1,
       query: '',
       limit: 200,
@@ -203,11 +225,13 @@ describe('BrowsePanel', () => {
 
     await wrapper.findAll('.tabs button')[1].trigger('click')
     await flushPromises()
+    await wrapper.get('.card').trigger('click')
+    await flushPromises()
     await wrapper.get('.row-queue').trigger('click')
     await flushPromises()
 
     expect(addToQueue).toHaveBeenCalledWith({
-      url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Track.mp3',
+      url: 'http://192.168.1.135:5173/api/library/file?library=main&path=Album%2FTrack.mp3',
       title: 'Track',
       isLive: false,
     })

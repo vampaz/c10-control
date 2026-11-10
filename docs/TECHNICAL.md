@@ -83,7 +83,8 @@ The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs 
 | `server/queue.ts` | App-side queue and auto-advance |
 | `server/sleep.ts` | Sleep timer with fade-out and volume restore |
 | `src/components/BrowsePanel.vue` | Radio search, favorites, libraries, queue and playlists |
-| `src/components/LibraryPanel.vue` | Folder picker, paging and track list |
+| `src/components/LibraryPanel.vue` | Album track list |
+| `src/components/AlbumGrid.vue` | Album cards with cover art |
 | `src/components/PlaylistsPanel.vue` | Playlist create, rename, delete and item management |
 | `src/components/PresetBar.vue` | Six preset slots |
 | `src/components/SleepControl.vue` | Sleep timer menu and countdown |
@@ -160,7 +161,8 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `GET` | `/api/sleep` | Current sleep deadline |
 | `POST` | `/api/sleep` | Start `{ minutes }` |
 | `DELETE` | `/api/sleep` | Cancel the timer |
-| `GET` | `/api/library` | Indexed files with speaker-ready URLs, `?q=&library=&limit=&offset=` |
+| `GET` | `/api/library` | Indexed files with speaker-ready URLs, `?q=&library=&dir=&limit=&offset=` |
+| `GET` | `/api/library/albums` | Album folders with track counts and cover art, `?q=&library=&limit=&offset=` |
 | `GET` | `/api/library/file?library=&path=` | Stream a file, with Range support |
 | `GET` | `/api/library/art?library=&path=` | Cover art from the file's tags or its album folder |
 | `POST` | `/api/library/play` | Play `{ library, path }` with the rest of its folder queued |

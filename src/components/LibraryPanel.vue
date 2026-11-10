@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { LibraryEntry, LibraryRoot } from '@shared/types'
+import type { LibraryEntry } from '@shared/types'
 import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   entries: LibraryEntry[]
   total: number
-  libraries: LibraryRoot[]
-  selectedLibrary: string
   mediaBaseUrl: string
   query: string
   busy: boolean
@@ -18,14 +16,9 @@ const emit = defineEmits<{
   play: [entry: LibraryEntry]
   queue: [entry: LibraryEntry]
   more: []
-  select: [libraryId: string]
 }>()
 
 const unreachable = computed(() => /(?:localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(props.mediaBaseUrl))
-
-function onSelect(event: Event): void {
-  emit('select', (event.target as HTMLSelectElement).value)
-}
 
 function size(bytes: number): string {
   const megabytes = bytes / (1024 * 1024)
@@ -42,71 +35,55 @@ function meta(entry: LibraryEntry): string {
 
 <template>
   <section class="group">
-    <h3>Library</h3>
+    <h3>Tracks</h3>
 
-    <p v-if="!libraries.length" class="hint">
-      Add a music folder in Speaker settings to play files from this machine.
+    <p class="count-line">{{ total.toLocaleString() }} {{ total === 1 ? 'track' : 'tracks' }}</p>
+
+    <p v-if="unreachable" class="warn" role="status">
+      The speaker cannot reach {{ mediaBaseUrl }}. Set Media URL in Speaker settings.
     </p>
 
-    <template v-else>
-      <label class="picker">
-        <span class="picker-label">Folder</span>
-        <select :value="selectedLibrary" @change="onSelect">
-          <option value="">All libraries</option>
-          <option v-for="library in libraries" :key="library.id" :value="library.id">
-            {{ library.name }}
-          </option>
-        </select>
-      </label>
-
-      <p class="count-line">{{ total.toLocaleString() }} {{ total === 1 ? 'track' : 'tracks' }}</p>
-
-      <p v-if="unreachable" class="warn" role="status">
-        The speaker cannot reach {{ mediaBaseUrl }}. Set Media URL in Speaker settings.
-      </p>
-
-      <ul v-if="entries.length" class="list">
-        <li v-for="entry in entries" :key="entry.id" class="row">
-          <button
-            type="button"
-            class="row-main"
-            :disabled="busy"
-            :aria-label="`Play ${entry.name}`"
-            @click="emit('play', entry)"
-          >
-            <span class="row-name">{{ entry.name }}</span>
-            <span class="row-meta">{{ meta(entry) }}</span>
-          </button>
-          <button
-            type="button"
-            class="row-queue"
-            :disabled="busy"
-            :aria-label="`Add ${entry.name} to the queue`"
-            @click="emit('queue', entry)"
-          >
-            <AppIcon name="plus" :size="14" />
-          </button>
-          <AppIcon name="play" :size="14" class="row-icon" />
-        </li>
-      </ul>
-
-      <p v-else-if="loading" class="hint">Reading the library…</p>
-      <p v-else-if="query.trim()" class="hint">Nothing matches “{{ query.trim() }}”.</p>
-      <p v-else class="hint">No audio files in this folder yet.</p>
-
-      <div v-if="entries.length" class="more">
-        <span class="count">{{ entries.length }} of {{ total }}</span>
+    <ul v-if="entries.length" class="list">
+      <li v-for="entry in entries" :key="entry.id" class="row">
         <button
-          v-if="entries.length < total"
           type="button"
-          class="text-button"
-          :disabled="loading"
-          @click="emit('more')"
+          class="row-main"
+          :disabled="busy"
+          :aria-label="`Play ${entry.name}`"
+          @click="emit('play', entry)"
         >
-          {{ loading ? 'Loading…' : 'Show more' }}
+          <span class="row-name">{{ entry.name }}</span>
+          <span class="row-meta">{{ meta(entry) }}</span>
         </button>
-      </div>
-    </template>
+        <button
+          type="button"
+          class="row-queue"
+          :disabled="busy"
+          :aria-label="`Add ${entry.name} to the queue`"
+          @click="emit('queue', entry)"
+        >
+          <AppIcon name="plus" :size="14" />
+        </button>
+        <AppIcon name="play" :size="14" class="row-icon" />
+      </li>
+    </ul>
+
+    <p v-else-if="loading" class="hint">Reading the library…</p>
+    <p v-else-if="query.trim()" class="hint">Nothing matches “{{ query.trim() }}”.</p>
+    <p v-else class="hint">No audio files in this folder yet.</p>
+
+    <div v-if="entries.length" class="more">
+      <span class="count">{{ entries.length }} of {{ total }}</span>
+      <button
+        v-if="entries.length < total"
+        type="button"
+        class="text-button"
+        :disabled="loading"
+        @click="emit('more')"
+      >
+        {{ loading ? 'Loading…' : 'Show more' }}
+      </button>
+    </div>
   </section>
 </template>
 
@@ -118,32 +95,6 @@ function meta(entry: LibraryEntry): string {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
-}
-
-.picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-}
-
-.picker-label {
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.picker select {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.8rem;
 }
 
 .count-line {

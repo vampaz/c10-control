@@ -1,4 +1,4 @@
-import type { AppConfig, CommandRequest, DiscoveredDevice, Favorite, FolderListing, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, RepeatMode, SleepStatus, SpeakerState } from '@shared/types'
+import type { AlbumListing, AppConfig, CommandRequest, DiscoveredDevice, Favorite, FolderListing, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, RepeatMode, SleepStatus, SpeakerState } from '@shared/types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -61,12 +61,23 @@ export async function searchRadio(query: string): Promise<RadioStation[]> {
   return result.stations
 }
 
-export function fetchLibrary(query = '', limit = 200, offset = 0, libraryId = ''): Promise<LibraryListing> {
+export function fetchLibrary(query = '', limit = 200, offset = 0, libraryId = '', dir = ''): Promise<LibraryListing> {
   const params = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) })
   if (libraryId) {
     params.set('library', libraryId)
   }
+  if (dir) {
+    params.set('dir', dir)
+  }
   return request<LibraryListing>(`/api/library?${params}`)
+}
+
+export function fetchAlbums(query = '', limit = 60, offset = 0, libraryId = ''): Promise<AlbumListing> {
+  const params = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) })
+  if (libraryId) {
+    params.set('library', libraryId)
+  }
+  return request<AlbumListing>(`/api/library/albums?${params}`)
 }
 
 export function fetchFolders(path = ''): Promise<FolderListing> {

@@ -715,6 +715,19 @@ describe('library artwork', () => {
   })
 })
 
+describe('library albums', () => {
+  it('lists album folders with the selected library and query', async () => {
+    const albums = vi.fn(async () => ({ libraries: [], albums: [], total: 0, query: 'air', limit: 60, offset: 0 }))
+    const library = { albums } as unknown as LibraryService
+    const { url } = await start(makeDeps({ library }))
+
+    const response = await fetch(`${url}/api/library/albums?q=air&library=main`)
+
+    expect(response.status).toBe(200)
+    expect(albums).toHaveBeenCalledWith(expect.objectContaining({ libraryId: 'main', query: 'air' }))
+  })
+})
+
 describe('library playback', () => {
   it('plays the folder that holds the selected file', async () => {
     const targets = [{ url: 'http://192.168.1.135:8787/api/library/file?library=main&path=album%2Fa.mp3', title: 'A', isLive: false }]

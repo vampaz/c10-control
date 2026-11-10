@@ -172,6 +172,43 @@ describe('LibraryService.folderTargets', () => {
   })
 })
 
+describe('LibraryService.albums', () => {
+  it('groups files into folders with track counts and art', async () => {
+    const { config, root } = fixture()
+    mkdirSync(join(root, 'Album A'))
+    writeFileSync(join(root, 'Album A', '01.mp3'), 'x')
+    writeFileSync(join(root, 'Album A', '02.mp3'), 'x')
+    writeFileSync(join(root, 'Album A', 'cover.jpg'), 'jpg')
+
+    const listing = await new LibraryService(() => config, 5173).albums()
+    const album = listing.albums.find((entry) => entry.name === 'Album A')
+
+    expect(listing.total).toBe(4)
+    expect(album?.trackCount).toBe(2)
+    expect(album?.libraryName).toBe('Main')
+    expect(album?.artworkUrl).toContain('/api/library/art?library=main&path=Album%20A%2F01.mp3')
+  })
+
+  it('filters albums by their name', async () => {
+    const { config, root } = fixture()
+    mkdirSync(join(root, 'Album A'))
+    writeFileSync(join(root, 'Album A', '01.mp3'), 'x')
+
+    const listing = await new LibraryService(() => config, 5173).albums({ query: 'album a' })
+
+    expect(listing.albums.map((entry) => entry.name)).toEqual(['Album A'])
+  })
+})
+
+describe('LibraryService.listing with a folder', () => {
+  it('returns only the files of one album folder', async () => {
+    const { config } = fixture()
+    const listing = await new LibraryService(() => config, 5173).listing({ libraryId: 'main', dir: 'sub' })
+
+    expect(listing.entries.map((entry) => entry.path)).toEqual(['sub/b.flac'])
+  })
+})
+
 describe('parseRange', () => {
   it('parses common byte ranges', () => {
     expect(parseRange('bytes=0-9', 100)).toEqual({ start: 0, end: 9 })

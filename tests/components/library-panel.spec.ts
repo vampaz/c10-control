@@ -1,13 +1,8 @@
 // @vitest-environment happy-dom
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import type { LibraryEntry, LibraryRoot } from '@shared/types'
+import type { LibraryEntry } from '@shared/types'
 import LibraryPanel from '@/components/LibraryPanel.vue'
-
-const LIBRARIES: LibraryRoot[] = [
-  { id: 'main', name: 'Main', path: '/music' },
-  { id: 'extra', name: 'Extra', path: '/other' },
-]
 
 const ENTRY: LibraryEntry = {
   id: 'a',
@@ -23,8 +18,6 @@ const ENTRY: LibraryEntry = {
 function mountPanel(overrides: Partial<{
   entries: LibraryEntry[]
   total: number
-  libraries: LibraryRoot[]
-  selectedLibrary: string
   mediaBaseUrl: string
   query: string
   busy: boolean
@@ -34,8 +27,6 @@ function mountPanel(overrides: Partial<{
     props: {
       entries: [ENTRY],
       total: 1,
-      libraries: LIBRARIES,
-      selectedLibrary: '',
       mediaBaseUrl: 'http://192.168.1.135:5173',
       query: '',
       busy: false,
@@ -56,27 +47,10 @@ describe('LibraryPanel', () => {
     wrapper.unmount()
   })
 
-  it('shows the library picker and reports a change', async () => {
-    const wrapper = mountPanel()
-
-    const select = wrapper.get('select')
-    await select.setValue('extra')
-
-    expect(wrapper.emitted('select')).toEqual([['extra']])
-    wrapper.unmount()
-  })
-
   it('explains an empty folder', () => {
     const wrapper = mountPanel({ entries: [], total: 0, query: '' })
 
     expect(wrapper.text()).toContain('No audio files')
-    wrapper.unmount()
-  })
-
-  it('asks for a folder when none is configured', () => {
-    const wrapper = mountPanel({ libraries: [], entries: [], total: 0 })
-
-    expect(wrapper.text()).toContain('Add a music folder')
     wrapper.unmount()
   })
 

@@ -264,6 +264,17 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
           query: url.searchParams.get('q') ?? '',
           limit: Number(url.searchParams.get('limit') ?? undefined),
           offset: Number(url.searchParams.get('offset') ?? undefined),
+          dir: url.searchParams.get('dir') ?? undefined,
+        }))
+        return
+      }
+
+      if (pathname === '/api/library/albums' && method === 'GET') {
+        sendJson(response, 200, await deps.library.albums({
+          libraryId: url.searchParams.get('library') ?? undefined,
+          query: url.searchParams.get('q') ?? '',
+          limit: Number(url.searchParams.get('limit') ?? undefined),
+          offset: Number(url.searchParams.get('offset') ?? undefined),
         }))
         return
       }

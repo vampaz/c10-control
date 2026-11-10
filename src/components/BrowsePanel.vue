@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import type { Favorite, LibraryEntry, LibraryListing, Playlist, QueueSnapshot, RadioStation } from '@shared/types'
+import type { AlbumListing, Favorite, LibraryAlbum, LibraryEntry, LibraryListing, Playlist, QueueSnapshot, RadioStation } from '@shared/types'
 import {
   addCurrentToPlaylist,
   addFavorite,
@@ -8,6 +8,7 @@ import {
   clearQueue,
   createPlaylist,
   deletePlaylist,
+  fetchAlbums,
   fetchLibrary,
   fetchPlaylists,
   fetchQueue,
@@ -24,6 +25,7 @@ import {
 } from '@/api'
 import { titleForUrl } from '@/format'
 import AppIcon from '@/components/AppIcon.vue'
+import AlbumGrid from '@/components/AlbumGrid.vue'
 import LibraryPanel from '@/components/LibraryPanel.vue'
 import PlaylistsPanel from '@/components/PlaylistsPanel.vue'
 import QueuePanel from '@/components/QueuePanel.vue'
@@ -51,6 +53,11 @@ const library = ref<LibraryListing>({
 const libraryLoading = ref(false)
 const libraryError = ref<string | null>(null)
 const libraryFilter = ref('')
+const albums = ref<AlbumListing>({ libraries: [], albums: [], total: 0, query: '', limit: 60, offset: 0 })
+const albumsLoading = ref(false)
+const albumsError = ref<string | null>(null)
+const albumsLoaded = ref(false)
+const selectedAlbum = ref<LibraryAlbum | null>(null)
 const queue = ref<QueueSnapshot>({ items: [], activeIndex: null, repeat: 'off', shuffle: false })
 const queueError = ref<string | null>(null)
 const playlists = ref<Playlist[]>([])
@@ -62,6 +69,11 @@ const drawer = ref<HTMLElement | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let libraryTimer: ReturnType<typeof setTimeout> | null = null
 let libraryGeneration = 0
+let albumGeneration = 0
+
+const libraryLibraries = computed(() => albums.value.libraries.length
+  ? albums.value.libraries
+  : library.value.libraries)
 
 onMounted(async () => {
   drawer.value?.focus()
@@ -70,7 +82,7 @@ onMounted(async () => {
   } catch (cause) {
     error.value = message(cause)
   }
-  void loadLibrary()
+  void loadAlbums()
   void loadQueue()
   void loadPlaylists()
 })
@@ -198,7 +210,14 @@ async function loadLibrary(reset = true): Promise<void> {
   libraryError.value = null
   try {
     const offset = reset ? 0 : library.value.entries.length
-    const page = await fetchLibrary(query.value.trim(), 200, offset, libraryFilter.value)
+    const album = selectedAlbum.value
+    const page = await fetchLibrary(
+      query.value.trim(),
+      200,
+      offset,
+      album ? album.libraryId : libraryFilter.value,
+      album ? album.path : '',
+    )
     if (generation !== libraryGeneration) {
       return
     }
@@ -225,10 +244,61 @@ function loadMoreLibrary(): void {
   }
 }
 
-function setLibrary(id: string): void {
-  libraryFilter.value = id
+async function loadAlbums(reset = true): Promise<void> {
+  const generation = ++albumGeneration
+  albumsLoading.value = true
+  albumsError.value = null
+  try {
+    const offset = reset ? 0 : albums.value.albums.length
+    const page = await fetchAlbums(query.value.trim(), 60, offset, libraryFilter.value)
+    if (generation !== albumGeneration) {
+      return
+    }
+    if (libraryFilter.value && !page.libraries.some((library) => library.id === libraryFilter.value)) {
+      libraryFilter.value = ''
+    }
+    albums.value = reset
+      ? page
+      : { ...page, albums: [...albums.value.albums, ...page.albums] }
+    albumsLoaded.value = true
+  } catch (cause) {
+    if (generation === albumGeneration) {
+      albumsError.value = message(cause)
+    }
+  } finally {
+    if (generation === albumGeneration) {
+      albumsLoading.value = false
+    }
+  }
+}
+
+function loadMoreAlbums(): void {
+  if (!albumsLoading.value) {
+    void loadAlbums(false)
+  }
+}
+
+function openAlbum(album: LibraryAlbum): void {
+  selectedAlbum.value = album
   query.value = ''
   void loadLibrary(true)
+}
+
+function closeAlbum(): void {
+  selectedAlbum.value = null
+  query.value = ''
+  void loadAlbums(true)
+}
+
+function setLibrary(id: string): void {
+  libraryFilter.value = id
+  selectedAlbum.value = null
+  query.value = ''
+  void loadAlbums(true)
+}
+
+function onLibrarySelect(event: Event): void {
+  setLibrary((event.target as HTMLSelectElement).value)
 }
 
 function setTab(next: 'radio' | 'library' | 'queue' | 'playlists'): void {
@@ -236,18 +306,33 @@ function setTab(next: 'radio' | 'library' | 'queue' | 'playlists'): void {
   query.value = ''
   error.value = null
   if (next === 'library') {
-    void loadLibrary(true)
+    selectedAlbum.value = null
+    void loadAlbums(true)
   }
 }
 
-const searchPlaceholder = computed(() => (tab.value === 'radio' ? 'Search radio stations' : 'Filter this folder'))
+const searchPlaceholder = computed(() => {
+  if (tab.value === 'radio') {
+    return 'Search radio stations'
+  }
+  if (tab.value === 'library') {
+    return selectedAlbum.value ? 'Filter this album' : 'Search albums'
+  }
+  return 'Filter this folder'
+})
 
 watch(query, (value) => {
   if (tab.value === 'library') {
     if (libraryTimer) {
       clearTimeout(libraryTimer)
     }
-    libraryTimer = setTimeout(() => void loadLibrary(true), 300)
+    libraryTimer = setTimeout(() => {
+      if (selectedAlbum.value) {
+        void loadLibrary(true)
+      } else {
+        void loadAlbums(true)
+      }
+    }, 300)
     return
   }
   if (tab.value !== 'radio') {
@@ -467,23 +552,58 @@ function meta(station: RadioStation): string {
       </template>
 
       <template v-else-if="tab === 'library'">
-        <p v-if="libraryError" class="error" role="alert">{{ libraryError }}</p>
-        <p v-else-if="libraryLoading" class="hint">Reading the library…</p>
-        <LibraryPanel
-          v-else
-          :entries="library.entries"
-          :total="library.total"
-          :libraries="library.libraries"
-          :selected-library="libraryFilter"
-          :media-base-url="library.mediaBaseUrl"
-          :query="query"
-          :busy="busyUrl !== null"
-          :loading="libraryLoading"
-          @play="playLibrary"
-          @queue="addTrackToQueue"
-          @more="loadMoreLibrary"
-          @select="setLibrary"
-        />
+        <label v-if="libraryLibraries.length" class="picker">
+          <span class="picker-label">Library</span>
+          <select :value="libraryFilter" @change="onLibrarySelect">
+            <option value="">All libraries</option>
+            <option v-for="entry in libraryLibraries" :key="entry.id" :value="entry.id">
+              {{ entry.name }}
+            </option>
+          </select>
+        </label>
+
+        <p v-if="albumsError" class="error" role="alert">{{ albumsError }}</p>
+
+        <p v-else-if="!libraryLibraries.length && !albumsLoaded" class="hint">
+          Reading the library…
+        </p>
+
+        <p v-else-if="!libraryLibraries.length" class="hint">
+          Add a music folder in Speaker settings to play files from this machine.
+        </p>
+
+        <template v-else-if="selectedAlbum">
+          <button type="button" class="album-back" @click="closeAlbum">
+            <AppIcon name="previous" :size="13" />
+            Albums
+          </button>
+          <p class="album-title">{{ selectedAlbum.name }}</p>
+          <p v-if="libraryError" class="error" role="alert">{{ libraryError }}</p>
+          <p v-else-if="libraryLoading && !library.entries.length" class="hint">Reading the album…</p>
+          <LibraryPanel
+            v-else
+            :entries="library.entries"
+            :total="library.total"
+            :media-base-url="library.mediaBaseUrl"
+            :query="query"
+            :busy="busyUrl !== null"
+            :loading="libraryLoading"
+            @play="playLibrary"
+            @queue="addTrackToQueue"
+            @more="loadMoreLibrary"
+          />
+        </template>
+
+        <template v-else>
+          <AlbumGrid
+            :albums="albums.albums"
+            :total="albums.total"
+            :loading="albumsLoading"
+            :busy="busyUrl !== null"
+            @open="openAlbum"
+            @more="loadMoreAlbums"
+          />
+        </template>
       </template>
 
       <template v-else-if="tab === 'queue'">
@@ -607,6 +727,57 @@ function meta(station: RadioStation): string {
   margin-left: 4px;
   font-size: 0.68rem;
   color: var(--accent);
+}
+
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 20px 10px;
+}
+
+.picker-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.picker select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.album-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 20px 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.album-back:hover {
+  color: var(--accent-strong);
+}
+
+.album-title {
+  margin: 0 20px 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--ink);
 }
 
 .search {

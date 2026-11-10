@@ -3,7 +3,7 @@ import { createReadStream, realpathSync, statSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
-import type { AppConfig, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
+import type { AppConfig, AlbumListing, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
 import { readCoverArt, type CoverArt } from './artwork.ts'
 import { detectMediaBaseUrl } from './network.ts'
 
@@ -24,6 +24,9 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 }
 
 const CACHE_TTL_MS = 5 * 60_000
+const DEFAULT_ALBUM_LIMIT = 60
+const MAX_ALBUM_LIMIT = 200
+
 export const DEFAULT_LIMIT = 200
 export const MAX_LIMIT = 500
 
@@ -43,6 +46,8 @@ export interface ListingOptions {
   query?: string
   limit?: number
   offset?: number
+  /** Restricts the listing to one album folder. */
+  dir?: string
 }
 
 export function isAudioFile(path: string): boolean {
@@ -190,6 +195,7 @@ export class LibraryService {
     const needle = query.toLowerCase()
     const matching = scanned
       .flatMap(({ library, files }, libraryIndex) => files.map((file) => ({ library, libraryIndex, file })))
+      .filter(({ file }) => !options.dir || dirname(file.path) === options.dir)
       .filter(({ library, file }) => !needle || `${file.name} ${file.path} ${library.name}`.toLowerCase().includes(needle))
       .sort((left, right) => left.libraryIndex - right.libraryIndex
         || left.file.path.localeCompare(right.file.path))
@@ -207,9 +213,80 @@ export class LibraryService {
     }
   }
 
+  /** Groups the index into album folders, each with cover art. */
+  async albums(options: ListingOptions = {}): Promise<AlbumListing> {
+    const config = this.getConfig()
+    const libraries = config.libraries
+    const selected = options.libraryId
+      ? libraries.filter((library) => library.id === options.libraryId)
+      : libraries
+    const query = (options.query ?? '').trim()
+    const needle = query.toLowerCase()
+    const requestedLimit = Number(options.limit)
+    const requestedOffset = Number(options.offset)
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(MAX_ALBUM_LIMIT, Math.max(1, Math.trunc(requestedLimit)))
+      : DEFAULT_ALBUM_LIMIT
+    const offset = Number.isFinite(requestedOffset)
+      ? Math.max(0, Math.trunc(requestedOffset))
+      : 0
+
+    if (!libraries.length) {
+      return { libraries: [], albums: [], total: 0, query, limit, offset }
+    }
+
+    const scanned = await Promise.all(selected.map(async (library) => ({
+      library,
+      files: await this.files(library.path),
+    })))
+
+    const groups = new Map<string, { library: LibraryRoot; dir: string; files: LibraryFile[] }>()
+    for (const { library, files } of scanned) {
+      for (const file of files) {
+        const dir = dirname(file.path)
+        const key = `${library.id}|${dir}`
+        const group = groups.get(key)
+        if (group) {
+          group.files.push(file)
+        } else {
+          groups.set(key, { library, dir, files: [file] })
+        }
+      }
+    }
+
+    const albums = [...groups.values()]
+      .map((group) => ({
+        group,
+        name: group.dir === '.' ? group.library.name : basename(group.dir),
+      }))
+      .filter(({ group, name }) => !needle
+        || name.toLowerCase().includes(needle)
+        || group.library.name.toLowerCase().includes(needle)
+        || group.files.some((file) => file.name.toLowerCase().includes(needle)))
+      .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' })
+        || left.group.library.name.localeCompare(right.group.library.name))
+      .map(({ group, name }) => ({
+        id: createHash('sha1').update(`${group.library.id}|${group.dir}`).digest('hex').slice(0, 12),
+        name,
+        path: group.dir,
+        libraryId: group.library.id,
+        libraryName: group.library.name,
+        trackCount: group.files.length,
+        artworkUrl: `/api/library/art?library=${encodeURIComponent(group.library.id)}&path=${encodeURIComponent(group.files[0].path)}`,
+      }))
+
+    return {
+      libraries,
+      albums: albums.slice(offset, offset + limit),
+      total: albums.length,
+      query,
+      limit,
+      offset,
+    }
+  }
+
   /** Resolves a relative path to a real file inside one of the libraries. */
-  resolveFile(libraryId: string, relativePath: string): string | null {
-    const library = this.getConfig().libraries.find((entry) => entry.id === libraryId)
+  resolveFile(libraryId: string, relativePath: string): string | null {    const library = this.getConfig().libraries.find((entry) => entry.id === libraryId)
     if (!library || !relativePath) {
       return null
     }
