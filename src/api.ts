@@ -77,6 +77,12 @@ export async function searchRadio(query: string): Promise<RadioStation[]> {
   return result.stations
 }
 
+export async function fetchTopStations(limit = 20, offset = 0): Promise<RadioStation[]> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const result = await request<{ stations: RadioStation[] }>(`/api/radio/top?${params}`)
+  return result.stations
+}
+
 export function fetchLibrary(query = '', limit = 200, offset = 0, libraryId = '', dir = ''): Promise<LibraryListing> {
   const params = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) })
   if (libraryId) {

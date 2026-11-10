@@ -11,7 +11,7 @@ import { PlaylistStore } from './playlists.ts'
 import { PositionStore } from './positions.ts'
 import { PresetStore } from './presets.ts'
 import { QueueController } from './queue.ts'
-import { searchStations } from './radio.ts'
+import { searchStations, topStations } from './radio.ts'
 import { SleepTimer } from './sleep.ts'
 import { SpeakerPoller } from './state.ts'
 
@@ -62,6 +62,7 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
     queue,
     sleep,
     searchRadio: searchStations,
+    topStations,
   })
 
   return { config, handler }

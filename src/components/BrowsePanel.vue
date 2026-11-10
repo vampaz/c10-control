@@ -12,6 +12,7 @@ import {
   fetchLibrary,
   fetchPlaylists,
   fetchQueue,
+  fetchTopStations,
   listFavorites,
   moveQueue,
   playLibraryAlbum,
@@ -49,6 +50,14 @@ const searched = ref(false)
 const busyUrl = ref<string | null>(null)
 const customUrl = ref('')
 const error = ref<string | null>(null)
+const topStations = ref<RadioStation[]>([])
+const stationsLoading = ref(false)
+const stationsError = ref<string | null>(null)
+const stationsDone = ref(false)
+const stationsSentinel = ref<HTMLElement | null>(null)
+const STATION_PAGE = 20
+let stationsGeneration = 0
+let stationsObserver: IntersectionObserver | null = null
 const library = ref<LibraryListing>({
   libraries: [],
   entries: [],
@@ -97,6 +106,26 @@ onMounted(async () => {
   void loadAlbums()
   void loadQueue()
   void loadPlaylists()
+  void loadTopStations(true)
+
+  if (typeof IntersectionObserver !== 'undefined') {
+    stationsObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)
+        && tab.value === 'radio'
+        && !query.value.trim()
+        && !stationsLoading.value
+        && !stationsDone.value) {
+        void loadTopStations(false)
+      }
+    }, { rootMargin: '150px' })
+  }
+
+  watch(stationsSentinel, (element) => {
+    stationsObserver?.disconnect()
+    if (element) {
+      stationsObserver?.observe(element)
+    }
+  })
 
   // Auto-advance changes the queue on the server, so follow track changes.
   unsubscribeState = subscribeState(
@@ -116,6 +145,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   document.body.classList.remove('drawer-open')
+  stationsObserver?.disconnect()
   unsubscribeState?.()
 })
 
@@ -387,6 +417,34 @@ function setTab(next: BrowseTab): void {
     selectedAlbum.value = null
     void loadAlbums(true)
   }
+  if (next === 'radio' && !topStations.value.length && !stationsLoading.value) {
+    void loadTopStations(true)
+  }
+}
+
+async function loadTopStations(reset = false): Promise<void> {
+  if (stationsLoading.value) {
+    return
+  }
+  const generation = ++stationsGeneration
+  stationsLoading.value = true
+  stationsError.value = null
+  try {
+    const page = await fetchTopStations(STATION_PAGE, reset ? 0 : topStations.value.length)
+    if (generation !== stationsGeneration) {
+      return
+    }
+    topStations.value = reset ? page : [...topStations.value, ...page]
+    stationsDone.value = page.length < STATION_PAGE
+  } catch (cause) {
+    if (generation === stationsGeneration) {
+      stationsError.value = message(cause)
+    }
+  } finally {
+    if (generation === stationsGeneration) {
+      stationsLoading.value = false
+    }
+  }
 }
 
 const searchPlaceholder = computed(() => {
@@ -624,11 +682,47 @@ function meta(station: RadioStation): string {
               </button>
             </li>
           </ul>
-          <p v-else class="hint">No favorites yet. Search for a station and tap the star.</p>
+          <p v-else class="hint">No favorites yet. Tap the star on a station.</p>
+        </section>
+
+        <section v-if="!query.trim()" class="group">
+          <h3>Stations</h3>
+          <p v-if="stationsError" class="error" role="alert">{{ stationsError }}</p>
+          <ul v-else-if="topStations.length" class="list">
+            <li v-for="station in topStations" :key="station.id" class="row">
+              <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
+                <span class="row-name">{{ station.name }}</span>
+                <span class="row-meta">{{ meta(station) }}</span>
+              </button>
+              <button
+                type="button"
+                class="star"
+                :aria-pressed="favoriteFor(station.url) !== undefined"
+                :aria-label="`${favoriteFor(station.url) ? 'Remove' : 'Add'} ${station.name} ${favoriteFor(station.url) ? 'from' : 'to'} favorites`"
+                @click="toggleFavorite(station)"
+              >
+                <AppIcon :name="favoriteFor(station.url) ? 'starFilled' : 'star'" :size="17" />
+              </button>
+            </li>
+          </ul>
+          <p v-else-if="stationsLoading" class="hint">Loading stations…</p>
+          <p v-else class="hint">No stations available right now.</p>
+
+          <div ref="stationsSentinel" class="stations-more">
+            <button
+              v-if="topStations.length && !stationsDone"
+              type="button"
+              class="text-button"
+              :disabled="stationsLoading"
+              @click="loadTopStations(false)"
+            >
+              {{ stationsLoading ? 'Loading…' : 'Show more stations' }}
+            </button>
+          </div>
         </section>
 
         <section v-if="query.trim()" class="group">
-          <h3>{{ searching ? 'Searching…' : 'Stations' }}</h3>
+          <h3>{{ searching ? 'Searching…' : 'Results' }}</h3>
           <ul v-if="results.length" class="list">
             <li v-for="station in results" :key="station.id" class="row">
               <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
@@ -957,6 +1051,12 @@ function meta(station: RadioStation): string {
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--ink);
+}
+
+.stations-more {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
 }
 
 .search {

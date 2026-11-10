@@ -23,6 +23,34 @@ interface RawStation {
   hls?: number
 }
 
+function remember(key: string, stations: RadioStation[]): void {
+  cache.set(key, { storedAt: Date.now(), stations })
+  if (cache.size > 60) {
+    const oldest = [...cache.entries()].sort((left, right) => left[1].storedAt - right[1].storedAt)[0]
+    if (oldest) {
+      cache.delete(oldest[0])
+    }
+  }
+}
+
+async function requestStations(url: string, limit: number): Promise<RadioStation[]> {
+  let response: Response
+  try {
+    response = await fetch(url, {
+      headers: { 'User-Agent': 'c10-control/0.2 (+local network speaker remote)' },
+      signal: AbortSignal.timeout(8000),
+    })
+  } catch {
+    throw new Error('The radio directory is unreachable')
+  }
+
+  if (!response.ok) {
+    throw new Error(`The radio directory answered HTTP ${response.status}`)
+  }
+
+  return normaliseStations(await response.json(), limit)
+}
+
 /**
  * The 2021 firmware cannot play HLS, so only direct streams are offered.
  * Entries without a resolved URL are useless to the speaker too.
@@ -82,21 +110,25 @@ export async function searchStations(query: string, limit = 30): Promise<RadioSt
   const url = `${DIRECTORY}/json/stations/search?name=${encodeURIComponent(text)}`
     + `&limit=${limit}&order=clickcount&reverse=true&hidebroken=true`
 
-  let response: Response
-  try {
-    response = await fetch(url, {
-      headers: { 'User-Agent': 'c10-control/0.2 (+local network speaker remote)' },
-      signal: AbortSignal.timeout(8000),
-    })
-  } catch {
-    throw new Error('The radio directory is unreachable')
+  const stations = await requestStations(url, limit)
+  remember(key, stations)
+  return stations
+}
+
+/** Most-played stations, for browsing before typing a search. */
+export async function topStations(limit = 20, offset = 0): Promise<RadioStation[]> {
+  const size = Math.min(50, Math.max(1, Math.trunc(limit) || 20))
+  const skip = Math.max(0, Math.trunc(offset) || 0)
+  const key = `top:${size}:${skip}`
+  const cached = cache.get(key)
+  if (cached && Date.now() - cached.storedAt < CACHE_TTL_MS) {
+    return cached.stations
   }
 
-  if (!response.ok) {
-    throw new Error(`The radio directory answered HTTP ${response.status}`)
-  }
+  const url = `${DIRECTORY}/json/stations/search?order=clickcount&reverse=true&hidebroken=true`
+    + `&limit=${size}&offset=${skip}`
 
-  const stations = normaliseStations(await response.json(), limit)
-  cache.set(key, { storedAt: Date.now(), stations })
+  const stations = await requestStations(url, size)
+  remember(key, stations)
   return stations
 }

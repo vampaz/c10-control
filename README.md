@@ -82,7 +82,7 @@ If `C10_LIBRARY_DIR` or `C10_LIBRARY_DIRS` is set, it replaces the libraries sav
 
 ### Radio
 
-Open **Browse → Radio**, search for a station, and press it to play. The star saves it to favorites.
+Open **Browse → Radio** to see a list of popular stations. Scroll to load more, or search by name. Press a station to play it; the star saves it to favorites.
 
 ### Local libraries
 

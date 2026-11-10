@@ -154,6 +154,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `POST` | `/api/command` | `play`, `pause`, `toggle`, `next`, `previous`, `stop`, `seek`, `volume`, `mute`, `input` |
 | `POST` | `/api/play` | Push `{ url, title?, artworkUrl?, isLive? }` to the speaker |
 | `GET` | `/api/radio/search?q=` | Search stations |
+| `GET` | `/api/radio/top?limit=&offset=` | Most-played stations for browsing |
 | `GET` | `/api/favorites` | List favorites |
 | `POST` | `/api/favorites` | Save a station |
 | `DELETE` | `/api/favorites/:id` | Forget a station |

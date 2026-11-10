@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AlbumListing, Favorite, LibraryListing, Playlist, QueueSnapshot } from '@shared/types'
+import type { AlbumListing, Favorite, LibraryListing, Playlist, QueueSnapshot, RadioStation } from '@shared/types'
 
 const favorites = vi.fn<() => Promise<Favorite[]>>()
 const addFavorite = vi.fn(async (_station: unknown): Promise<Favorite[]> => [])
@@ -13,6 +13,7 @@ const playNext = vi.fn(async (_target: unknown): Promise<QueueSnapshot> => empty
 const moveQueue = vi.fn(async (_from: number, _to: number): Promise<QueueSnapshot> => emptyQueue)
 const subscribeState = vi.fn((_onState: (state: unknown) => void, _onStatus: (open: boolean) => void) => () => undefined)
 const searchRadio = vi.fn(async (_query: string) => [])
+const fetchTopStations = vi.fn(async (_limit: number, _offset: number): Promise<RadioStation[]> => [])
 const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
   libraries: [],
   entries: [],
@@ -65,6 +66,7 @@ vi.mock('@/api', () => ({
   moveQueue: (from: number, to: number) => moveQueue(from, to),
   subscribeState: (onState: (state: unknown) => void, onStatus: (open: boolean) => void) => subscribeState(onState, onStatus),
   searchRadio: (query: string) => searchRadio(query),
+  fetchTopStations: (limit: number, offset: number) => fetchTopStations(limit, offset),
   fetchLibrary: () => fetchLibrary(),
   fetchAlbums: () => fetchAlbums(),
   fetchQueue: () => fetchQueue(),
@@ -177,6 +179,29 @@ describe('BrowsePanel', () => {
     await wrapper.get('.drawer').trigger('keydown', { key: 'Escape' })
 
     expect(wrapper.emitted('close')).toHaveLength(2)
+    wrapper.unmount()
+  })
+
+  it('lists popular stations before searching, and pages them', async () => {
+    favorites.mockResolvedValue([])
+    const many = Array.from({ length: 20 }, (_, index) => ({
+      ...STATION,
+      id: `s${index}`,
+      name: `Station ${index}`,
+      url: `http://stream.example.com/${index}`,
+    }))
+    fetchTopStations.mockResolvedValueOnce(many).mockResolvedValueOnce([{ ...STATION, id: 'last', name: 'Last station', url: 'http://stream.example.com/last' }])
+    const wrapper = await mountPanel()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Station 0')
+    expect(fetchTopStations).toHaveBeenCalledWith(20, 0)
+
+    await wrapper.find('.stations-more .text-button').trigger('click')
+    await flushPromises()
+
+    expect(fetchTopStations).toHaveBeenLastCalledWith(20, 20)
+    expect(wrapper.text()).toContain('Last station')
     wrapper.unmount()
   })
 

@@ -145,6 +145,7 @@ function makeDeps(overrides: Partial<AppDependencies> = {}): AppDependencies {
     queue,
     sleep,
     searchRadio: vi.fn(async () => []),
+    topStations: vi.fn(async () => []),
     ...overrides,
   }
 }
@@ -365,6 +366,16 @@ describe('play requests', () => {
 })
 
 describe('radio search', () => {
+  it('lists popular stations for browsing', async () => {
+    const topStations = vi.fn(async () => [])
+    const { url } = await start(makeDeps({ topStations }))
+
+    const response = await fetch(`${url}/api/radio/top?limit=20&offset=40`)
+
+    expect(response.status).toBe(200)
+    expect(topStations).toHaveBeenCalledWith(20, 40)
+  })
+
   it('forwards the query to the directory', async () => {
     const searchRadio = vi.fn(async () => [])
     const { url } = await start(makeDeps({ searchRadio }))

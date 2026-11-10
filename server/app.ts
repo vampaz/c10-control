@@ -33,6 +33,7 @@ export interface AppDependencies {
   queue: QueueController
   sleep: SleepTimer
   searchRadio: (query: string) => Promise<RadioStation[]>
+  topStations: (limit: number, offset: number) => Promise<RadioStation[]>
 }
 
 function sendJson(response: ServerResponse, status: number, body: unknown): void {
@@ -207,6 +208,16 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
         const target = deps.library.resolveTarget(parsePlayTarget(await readJsonBody(request)))
         await deps.poller.playTarget(target)
         sendJson(response, 200, deps.poller.current)
+        return
+      }
+
+      if (pathname === '/api/radio/top' && method === 'GET') {
+        sendJson(response, 200, {
+          stations: await deps.topStations(
+            Number(url.searchParams.get('limit') ?? 20),
+            Number(url.searchParams.get('offset') ?? 0),
+          ),
+        })
         return
       }
 

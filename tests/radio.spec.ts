@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { normaliseStations } from '../server/radio.ts'
+import { describe, expect, it, vi } from 'vitest'
+import { normaliseStations, topStations } from '../server/radio.ts'
 
 const RAW = [
   {
@@ -59,5 +59,26 @@ describe('normaliseStations', () => {
   it('tolerates a broken payload', () => {
     expect(normaliseStations({ not: 'a list' }, 10)).toEqual([])
     expect(normaliseStations(null, 10)).toEqual([])
+  })
+})
+
+describe('topStations', () => {
+  it('lists popular stations with paging', async () => {
+    const fetchMock = vi.fn(async (_input: unknown) => new Response(JSON.stringify(RAW), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const stations = await topStations(20, 137)
+
+      expect(stations.map((station) => station.name)).toEqual(['Jazz FM'])
+      const url = String(fetchMock.mock.calls[0][0])
+      expect(url).toContain('order=clickcount')
+      expect(url).toContain('offset=137')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
