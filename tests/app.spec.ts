@@ -137,6 +137,8 @@ function makeDeps(overrides: Partial<AppDependencies> = {}): AppDependencies {
       startSpeakerQueue: vi.fn(async () => undefined),
       browseSpeakerQueue: vi.fn(async () => ''),
       deleteSpeakerQueue: vi.fn(async () => undefined),
+      deviceDetails: vi.fn(async () => ({})),
+      renameDevice: vi.fn(async () => undefined),
     } as unknown as SpeakerPoller,
     getConfig: () => CONFIG,
     setConfig: (patch) => ({ ...CONFIG, ...patch }),
@@ -956,6 +958,48 @@ describe('speaker queue', () => {
 
     expect(response.status).toBe(200)
     expect(body.tracks).toHaveLength(1)
+  })
+})
+
+describe('device details', () => {
+  it('returns signal, channel and update state', async () => {
+    const poller = {
+      deviceDetails: vi.fn(async () => ({
+        DeviceName: 'Office',
+        RSSI: '-43',
+        WifiChannel: '9',
+        internet: '1',
+        VersionUpdate: '0',
+      })),
+    } as unknown as SpeakerPoller
+    const { url } = await start(makeDeps({ poller }))
+
+    const response = await fetch(`${url}/api/device`)
+    const body = (await response.json()) as Record<string, unknown>
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({ name: 'Office', rssi: -43, wifiChannel: 9, internet: true, versionUpdate: false })
+  })
+
+  it('renames the speaker and rejects an empty name', async () => {
+    const renameDevice = vi.fn(async () => undefined)
+    const poller = { renameDevice } as unknown as SpeakerPoller
+    const { url } = await start(makeDeps({ poller }))
+
+    const ok = await fetch(`${url}/api/device/name`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Kitchen' }),
+    })
+    const empty = await fetch(`${url}/api/device/name`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: ' ' }),
+    })
+
+    expect(ok.status).toBe(200)
+    expect(renameDevice).toHaveBeenCalledWith('Kitchen')
+    expect(empty.status).toBe(400)
   })
 })
 

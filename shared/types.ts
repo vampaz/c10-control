@@ -9,6 +9,14 @@ export interface DeviceInfo {
   uuid: string
 }
 
+export interface DeviceDetails {
+  name: string
+  rssi: number | null
+  wifiChannel: number | null
+  internet: boolean
+  versionUpdate: boolean
+}
+
 export interface PlaybackState {
   status: PlaybackStatus
   title: string

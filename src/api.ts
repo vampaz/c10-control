@@ -1,4 +1,4 @@
-import type { AlbumListing, AppConfig, CommandRequest, DiscoveredDevice, Favorite, FolderListing, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, RepeatMode, SleepStatus, SpeakerState } from '@shared/types'
+import type { AlbumListing, AppConfig, CommandRequest, DeviceDetails, DiscoveredDevice, Favorite, FolderListing, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, RepeatMode, SleepStatus, SpeakerState } from '@shared/types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -27,6 +27,17 @@ export function sendCommand(command: CommandRequest): Promise<SpeakerState> {
 
 export function fetchConfig(): Promise<AppConfig> {
   return request<AppConfig>('/api/config')
+}
+
+export function fetchDeviceDetails(): Promise<DeviceDetails> {
+  return request<DeviceDetails>('/api/device')
+}
+
+export function renameSpeaker(name: string): Promise<{ name: string }> {
+  return request<{ name: string }>('/api/device/name', {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  })
 }
 
 export function updateConfig(patch: Partial<AppConfig>): Promise<AppConfig> {

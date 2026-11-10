@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { AppConfig, DeviceInfo, DiscoveredDevice, FolderListing, LibraryRoot, SpeakerInput } from '@shared/types'
-import { discoverDevices, fetchFolders, updateConfig } from '@/api'
+import { discoverDevices, fetchDeviceDetails, fetchFolders, renameSpeaker, updateConfig } from '@/api'
+import type { DeviceDetails } from '@shared/types'
 import { prettyModel } from '@/format'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 import AppIcon from '@/components/AppIcon.vue'
@@ -36,6 +37,11 @@ const saving = ref(false)
 const error = ref<string | null>(null)
 const searched = ref(false)
 const hostInput = ref<HTMLInputElement | null>(null)
+const details = ref<DeviceDetails | null>(null)
+const detailError = ref<string | null>(null)
+const renameValue = ref(props.device?.name ?? '')
+const renaming = ref(false)
+const renameError = ref<string | null>(null)
 const { container: dialog } = useFocusTrap(() => emit('close'))
 
 onMounted(() => {
@@ -46,7 +52,40 @@ onMounted(() => {
   } else {
     dialog.value?.querySelector<HTMLElement>('.dialog-head button')?.focus()
   }
+  void loadDetails()
 })
+
+async function loadDetails(): Promise<void> {
+  detailError.value = null
+  try {
+    details.value = await fetchDeviceDetails()
+    if (!renameValue.value) {
+      renameValue.value = details.value.name
+    }
+  } catch (error) {
+    detailError.value = error instanceof Error ? error.message : 'Speaker details are unavailable'
+  }
+}
+
+async function rename(): Promise<void> {
+  const name = renameValue.value.trim()
+  if (!name) {
+    return
+  }
+  renaming.value = true
+  renameError.value = null
+  try {
+    const result = await renameSpeaker(name)
+    renameValue.value = result.name
+    if (details.value) {
+      details.value = { ...details.value, name: result.name }
+    }
+  } catch (error) {
+    renameError.value = error instanceof Error ? error.message : 'The speaker could not be renamed'
+  } finally {
+    renaming.value = false
+  }
+}
 
 async function search(): Promise<void> {
   searching.value = true
@@ -271,9 +310,24 @@ async function save(): Promise<void> {
         <p v-else-if="searched && !searching" class="hint">No speakers answered. Enter the address by hand.</p>
       </div>
 
+      <label class="field">
+        <span class="field-label">Speaker name</span>
+        <div class="rename-row">
+          <input v-model="renameValue" type="text" maxlength="40" autocomplete="off" aria-label="Speaker name" />
+          <button type="button" class="ghost" :disabled="renaming || !renameValue.trim()" @click="rename">
+            {{ renaming ? 'Renaming…' : 'Rename' }}
+          </button>
+        </div>
+      </label>
+      <p v-if="renameError || detailError" class="error" role="alert">{{ renameError ?? detailError }}</p>
+
       <dl v-if="device" class="facts">
         <div><dt>Model</dt><dd>{{ prettyModel(device.model) }}</dd></div>
         <div><dt>Firmware</dt><dd>{{ device.firmware }}</dd></div>
+        <div v-if="details"><dt>Signal</dt><dd>{{ details.rssi !== null ? `${details.rssi} dBm` : '—' }}</dd></div>
+        <div v-if="details"><dt>Wi-Fi channel</dt><dd>{{ details.wifiChannel ?? '—' }}</dd></div>
+        <div v-if="details"><dt>Internet</dt><dd>{{ details.internet ? 'Online' : 'Offline' }}</dd></div>
+        <div v-if="details"><dt>Update</dt><dd>{{ details.versionUpdate ? 'Available' : 'Up to date' }}</dd></div>
         <div><dt>UUID</dt><dd class="mono">{{ device.uuid || '—' }}</dd></div>
       </dl>
 
@@ -338,6 +392,16 @@ async function save(): Promise<void> {
 .setting-group {
   display: grid;
   gap: 6px;
+}
+
+.rename-row {
+  display: flex;
+  gap: 8px;
+}
+
+.rename-row input {
+  flex: 1;
+  min-width: 0;
 }
 
 .field {

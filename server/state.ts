@@ -239,8 +239,20 @@ export class SpeakerPoller {
     await this.refreshAfterCommand()
   }
 
-  /** Creates the device-side queue, plays an index and refreshes state. */
-  async startSpeakerQueue(context: string, index: number): Promise<void> {
+  /** Reads RSSI, Wi-Fi channel and update flags from the speaker. */
+  async deviceDetails(): Promise<Record<string, string>> {
+    return this.device.getDeviceDetails()
+  }
+
+  /** Renames the speaker and forces the cached device info to refresh. */
+  async renameDevice(name: string): Promise<void> {
+    await this.device.setDeviceName(name)
+    this.info = null
+    this.infoFetchedAt = 0
+    await this.refresh()
+  }
+
+  /** Creates the device-side queue, plays an index and refreshes state. */  async startSpeakerQueue(context: string, index: number): Promise<void> {
     await this.device.deletePlayQueue(SPEAKER_QUEUE_NAME).catch(() => undefined)
     await this.device.createPlayQueue(context)
     await this.device.playPlayQueue(SPEAKER_QUEUE_NAME, index)

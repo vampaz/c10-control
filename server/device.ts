@@ -1,7 +1,7 @@
 import type { AppConfig, DeviceInfo, PlaybackStatus, PlayTarget, SpeakerInput } from '../shared/types.ts'
 import { buildDidl } from './didl.ts'
 import { parseMediaInfo, type MediaInfo } from './mediainfo.ts'
-import { buildSoapEnvelope, parseSoapFault, parseSoapResponse } from './soap.ts'
+import { buildSoapEnvelope, parseSoapFault, parseSoapResponse, unescapeXml } from './soap.ts'
 import { mapTransportState, parsePlayerStatusPayload, type PlayerStatus } from './status.ts'
 
 const AV_TRANSPORT = 'urn:schemas-upnp-org:service:AVTransport:1'
@@ -82,6 +82,20 @@ export class SpeakerDevice {
   /** Cover art, subtitle and current URI from the UPnP media description. */
   async getMediaInfo(): Promise<MediaInfo> {
     return parseMediaInfo(await this.soapPayload(AV_TRANSPORT, 'rendertransport1', 'GetMediaInfo'))
+  }
+
+  /** Device status JSON: RSSI, Wi-Fi channel, internet and update flags. */
+  async getDeviceDetails(): Promise<Record<string, string>> {
+    const fields = await this.soap(RENDERING_CONTROL, 'rendercontrol1', 'GetControlDeviceInfo')
+    try {
+      return JSON.parse(unescapeXml(fields.Status ?? '{}')) as Record<string, string>
+    } catch {
+      return {}
+    }
+  }
+
+  async setDeviceName(name: string): Promise<void> {
+    await this.soap(RENDERING_CONTROL, 'rendercontrol1', 'SetDeviceName', { Name: name })
   }
 
   async createPlayQueue(context: string): Promise<void> {

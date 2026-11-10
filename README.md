@@ -86,7 +86,9 @@ Open **Browse → Radio** to see a list of popular stations. Scroll to load more
 
 ### Local libraries
 
-Add one or more folders in **Speaker settings → Music folders**. In Docker, use **Browse folders** to pick a subfolder of the mounted parent. **Browse → Library** shows one card per release with cover art, named from the album and artist tags; folders that carry the same album and artist merge into one card. Search matches albums and tracks together and ignores accents. Open an album, then press **Play** or **Shuffle** to start it, or press a track to play it: the rest of its folder queues behind it, so the transport's next and previous buttons move through that folder. Press **+** to add a single track to the queue.
+Add one or more folders in **Speaker settings → Music folders**. In Docker, use **Browse folders** to pick a subfolder of the mounted parent. Speaker settings also shows the Wi-Fi signal, channel, internet state and firmware update, and lets you rename the speaker.
+
+**Browse → Library** shows one card per release with cover art, named from the album and artist tags; folders that carry the same album and artist merge into one card. Search matches albums and tracks together and ignores accents. Open an album, then press **Play** or **Shuffle** to start it, or press a track to play it: the rest of its folder queues behind it, so the transport's next and previous buttons move through that folder. Press **+** to add a single track to the queue.
 
 The speaker fetches the file from this app, so the app needs a LAN address the speaker can reach. If local files do not start, set **Media URL** in settings.
 

@@ -194,6 +194,8 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `GET` | `/api/config` | Read the configuration |
 | `PUT` | `/api/config` | Update the speaker address, libraries or media URL |
 | `GET` | `/api/discovery` | SSDP search |
+| `GET` | `/api/device` | Speaker signal, channel, internet and update state |
+| `PUT` | `/api/device/name` | Rename the speaker with `{ name }` |
 | `GET` | `/api/health` | Health check |
 
 ## Data files

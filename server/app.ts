@@ -379,6 +379,31 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
         return
       }
 
+      if (pathname === '/api/device' && method === 'GET') {
+        const details = await deps.poller.deviceDetails()
+        sendJson(response, 200, {
+          name: details.DeviceName ?? '',
+          rssi: Number(details.RSSI) || null,
+          wifiChannel: Number(details.WifiChannel) || null,
+          internet: details.internet === '1',
+          versionUpdate: details.VersionUpdate === '1' || details.NewVer === '1',
+        })
+        return
+      }
+
+      if (pathname === '/api/device/name' && method === 'PUT') {
+        const body = await readJsonBody(request)
+        const name = typeof body === 'object' && body !== null
+          ? String((body as { name?: unknown }).name ?? '').trim()
+          : ''
+        if (!name || name.length > 40) {
+          throw new Error('A name between 1 and 40 characters is required')
+        }
+        await deps.poller.renameDevice(name)
+        sendJson(response, 200, { name })
+        return
+      }
+
       if (pathname === '/api/speaker-queue') {
         if (method === 'GET') {
           const context = await deps.poller.browseSpeakerQueue()
