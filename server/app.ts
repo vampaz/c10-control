@@ -385,8 +385,10 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
           name: details.DeviceName ?? '',
           rssi: Number(details.RSSI) || null,
           wifiChannel: Number(details.WifiChannel) || null,
-          internet: details.internet === '1',
-          versionUpdate: details.VersionUpdate === '1' || details.NewVer === '1',
+          internet: details.internet === undefined ? null : details.internet === '1',
+          versionUpdate: details.VersionUpdate === undefined && details.NewVer === undefined
+            ? null
+            : details.VersionUpdate === '1' || details.NewVer === '1',
         })
         return
       }

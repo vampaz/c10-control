@@ -313,7 +313,14 @@ async function save(): Promise<void> {
       <label class="field">
         <span class="field-label">Speaker name</span>
         <div class="rename-row">
-          <input v-model="renameValue" type="text" maxlength="40" autocomplete="off" aria-label="Speaker name" />
+          <input
+            v-model="renameValue"
+            type="text"
+            maxlength="40"
+            autocomplete="off"
+            aria-label="Speaker name"
+            @keydown.enter="rename"
+          />
           <button type="button" class="ghost" :disabled="renaming || !renameValue.trim()" @click="rename">
             {{ renaming ? 'Renaming…' : 'Rename' }}
           </button>
@@ -326,8 +333,8 @@ async function save(): Promise<void> {
         <div><dt>Firmware</dt><dd>{{ device.firmware }}</dd></div>
         <div v-if="details"><dt>Signal</dt><dd>{{ details.rssi !== null ? `${details.rssi} dBm` : '—' }}</dd></div>
         <div v-if="details"><dt>Wi-Fi channel</dt><dd>{{ details.wifiChannel ?? '—' }}</dd></div>
-        <div v-if="details"><dt>Internet</dt><dd>{{ details.internet ? 'Online' : 'Offline' }}</dd></div>
-        <div v-if="details"><dt>Update</dt><dd>{{ details.versionUpdate ? 'Available' : 'Up to date' }}</dd></div>
+        <div v-if="details"><dt>Internet</dt><dd>{{ details.internet === null ? '—' : details.internet ? 'Online' : 'Offline' }}</dd></div>
+        <div v-if="details"><dt>Update</dt><dd>{{ details.versionUpdate === null ? '—' : details.versionUpdate ? 'Available' : 'Up to date' }}</dd></div>
         <div><dt>UUID</dt><dd class="mono">{{ device.uuid || '—' }}</dd></div>
       </dl>
 

@@ -13,8 +13,8 @@ export interface DeviceDetails {
   name: string
   rssi: number | null
   wifiChannel: number | null
-  internet: boolean
-  versionUpdate: boolean
+  internet: boolean | null
+  versionUpdate: boolean | null
 }
 
 export interface PlaybackState {

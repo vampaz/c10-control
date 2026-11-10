@@ -252,7 +252,8 @@ export class SpeakerPoller {
     await this.refresh()
   }
 
-  /** Creates the device-side queue, plays an index and refreshes state. */  async startSpeakerQueue(context: string, index: number): Promise<void> {
+  /** Creates the device-side queue, plays an index and refreshes state. */
+  async startSpeakerQueue(context: string, index: number): Promise<void> {
     await this.device.deletePlayQueue(SPEAKER_QUEUE_NAME).catch(() => undefined)
     await this.device.createPlayQueue(context)
     await this.device.playPlayQueue(SPEAKER_QUEUE_NAME, index)
