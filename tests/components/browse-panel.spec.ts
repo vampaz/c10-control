@@ -205,13 +205,27 @@ describe('BrowsePanel', () => {
     wrapper.unmount()
   })
 
+  it('keeps the stream URL box only on the radio tab', async () => {
+    favorites.mockResolvedValue([])
+    const wrapper = await mountPanel()
+    await flushPromises()
+
+    expect(wrapper.find('.stream-box').exists()).toBe(true)
+
+    await wrapper.findAll('.tabs button')[1].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.stream-box').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('disables the stream button until a URL is present', async () => {
     favorites.mockResolvedValue([])
     const wrapper = await mountPanel()
 
-    expect((wrapper.get('.drawer-foot .primary').element as HTMLButtonElement).disabled).toBe(true)
+    expect((wrapper.get('.stream-box .primary').element as HTMLButtonElement).disabled).toBe(true)
     await wrapper.get('.stream-row input').setValue('http://example.com/live')
-    expect((wrapper.get('.drawer-foot .primary').element as HTMLButtonElement).disabled).toBe(false)
+    expect((wrapper.get('.stream-box .primary').element as HTMLButtonElement).disabled).toBe(false)
     wrapper.unmount()
   })
 

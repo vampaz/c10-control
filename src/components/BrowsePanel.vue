@@ -54,10 +54,10 @@ const topStations = ref<RadioStation[]>([])
 const stationsLoading = ref(false)
 const stationsError = ref<string | null>(null)
 const stationsDone = ref(false)
-const stationsSentinel = ref<HTMLElement | null>(null)
+const scrollArea = ref<HTMLElement | null>(null)
 const STATION_PAGE = 20
 let stationsGeneration = 0
-let stationsObserver: IntersectionObserver | null = null
+let stationsOffset = 0
 const library = ref<LibraryListing>({
   libraries: [],
   entries: [],
@@ -108,25 +108,6 @@ onMounted(async () => {
   void loadPlaylists()
   void loadTopStations(true)
 
-  if (typeof IntersectionObserver !== 'undefined') {
-    stationsObserver = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)
-        && tab.value === 'radio'
-        && !query.value.trim()
-        && !stationsLoading.value
-        && !stationsDone.value) {
-        void loadTopStations(false)
-      }
-    }, { rootMargin: '150px' })
-  }
-
-  watch(stationsSentinel, (element) => {
-    stationsObserver?.disconnect()
-    if (element) {
-      stationsObserver?.observe(element)
-    }
-  })
-
   // Auto-advance changes the queue on the server, so follow track changes.
   unsubscribeState = subscribeState(
     (state) => {
@@ -145,7 +126,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   document.body.classList.remove('drawer-open')
-  stationsObserver?.disconnect()
   unsubscribeState?.()
 })
 
@@ -422,6 +402,16 @@ function setTab(next: BrowseTab): void {
   }
 }
 
+function onScroll(): void {
+  const area = scrollArea.value
+  if (!area || tab.value !== 'radio' || query.value.trim() || stationsLoading.value || stationsDone.value) {
+    return
+  }
+  if (area.scrollTop + area.clientHeight >= area.scrollHeight - 200) {
+    void loadTopStations(false)
+  }
+}
+
 async function loadTopStations(reset = false): Promise<void> {
   if (stationsLoading.value) {
     return
@@ -430,12 +420,19 @@ async function loadTopStations(reset = false): Promise<void> {
   stationsLoading.value = true
   stationsError.value = null
   try {
-    const page = await fetchTopStations(STATION_PAGE, reset ? 0 : topStations.value.length)
+    const offset = reset ? 0 : stationsOffset
+    const page = await fetchTopStations(STATION_PAGE, offset)
     if (generation !== stationsGeneration) {
       return
     }
-    topStations.value = reset ? page : [...topStations.value, ...page]
-    stationsDone.value = page.length < STATION_PAGE
+
+    // The directory pages by raw rows, so advance by the page size, not by
+    // the number of stations that survived filtering.
+    stationsOffset = offset + STATION_PAGE
+    const seen = new Set(topStations.value.map((station) => station.id))
+    const additions = page.filter((station) => !seen.has(station.id))
+    topStations.value = reset ? page : [...topStations.value, ...additions]
+    stationsDone.value = page.length === 0
   } catch (cause) {
     if (generation === stationsGeneration) {
       stationsError.value = message(cause)
@@ -661,8 +658,25 @@ function meta(station: RadioStation): string {
 
     <p v-if="error && tab === 'radio'" class="error" role="alert">{{ error }}</p>
 
-    <div class="scroll">
+    <div ref="scrollArea" class="scroll" @scroll.passive="onScroll">
       <template v-if="tab === 'radio'">
+        <section class="stream-box">
+          <span class="stream-label">Play a stream URL</span>
+          <div class="stream-row">
+            <input
+              v-model="customUrl"
+              type="url"
+              placeholder="https://…"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Stream URL"
+              @keydown.enter="playCustom"
+            />
+            <button type="button" class="primary" :disabled="!customUrl.trim() || busyUrl !== null" @click="playCustom">
+              Play
+            </button>
+          </div>
+        </section>
         <section v-if="!query.trim()" class="group">
           <h3>Favorites</h3>
           <ul v-if="favorites.length" class="list">
@@ -708,7 +722,7 @@ function meta(station: RadioStation): string {
           <p v-else-if="stationsLoading" class="hint">Loading stations…</p>
           <p v-else class="hint">No stations available right now.</p>
 
-          <div ref="stationsSentinel" class="stations-more">
+          <div class="stations-more">
             <button
               v-if="topStations.length && !stationsDone"
               type="button"
@@ -869,24 +883,6 @@ function meta(station: RadioStation): string {
         />
       </template>
     </div>
-
-    <footer class="drawer-foot">
-      <span class="foot-label">Play a stream</span>
-      <div class="stream-row">
-        <input
-          v-model="customUrl"
-          type="url"
-          placeholder="https://…"
-          autocomplete="off"
-          spellcheck="false"
-          aria-label="Stream URL"
-          @keydown.enter="playCustom"
-        />
-        <button type="button" class="primary" :disabled="!customUrl.trim() || busyUrl !== null" @click="playCustom">
-          Play
-        </button>
-      </div>
-    </footer>
   </aside>
 </template>
 
@@ -1192,15 +1188,17 @@ function meta(station: RadioStation): string {
   color: var(--ink-faint);
 }
 
-.drawer-foot {
+.stream-box {
   display: grid;
   gap: 8px;
-  padding: 14px 20px 18px;
-  border-top: 1px solid var(--line);
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
   background: var(--surface-sunken);
 }
 
-.foot-label {
+.stream-label {
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
