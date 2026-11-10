@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import type { AppConfig, DeviceInfo, DiscoveredDevice, FolderListing, LibraryRoot } from '@shared/types'
+import type { AppConfig, DeviceInfo, DiscoveredDevice, FolderListing, LibraryRoot, SpeakerInput } from '@shared/types'
 import { discoverDevices, fetchFolders, updateConfig } from '@/api'
 import { prettyModel } from '@/format'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 import AppIcon from '@/components/AppIcon.vue'
+import InputControl from '@/components/InputControl.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   config: AppConfig
   device: DeviceInfo | null
-}>()
+  input?: SpeakerInput | null
+  busy?: boolean
+}>(), { input: null, busy: false })
 
 const emit = defineEmits<{
   close: []
   saved: [config: AppConfig]
+  input: [mode: SpeakerInput]
 }>()
 
 const host = ref(props.config.host)
@@ -170,6 +174,11 @@ async function save(): Promise<void> {
         Fixed by <code>C10_HOST</code> in the environment. Change it there and restart.
       </p>
 
+      <section class="setting-group">
+        <InputControl :current="input" :busy="busy" @input="emit('input', $event)" />
+        <p class="hint">Switching input stops the current stream.</p>
+      </section>
+
       <div class="field">
         <span class="field-label">Music folders</span>
         <ul v-if="libraries.length" class="libraries">
@@ -324,6 +333,11 @@ async function save(): Promise<void> {
   font-size: 1.05rem;
   font-weight: 500;
   letter-spacing: -0.01em;
+}
+
+.setting-group {
+  display: grid;
+  gap: 6px;
 }
 
 .field {

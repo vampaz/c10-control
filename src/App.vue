@@ -8,7 +8,6 @@ import AppIcon from '@/components/AppIcon.vue'
 import ArtworkTile from '@/components/ArtworkTile.vue'
 import BrowsePanel from '@/components/BrowsePanel.vue'
 import DevicePanel from '@/components/DevicePanel.vue'
-import InputControl from '@/components/InputControl.vue'
 import PresetBar from '@/components/PresetBar.vue'
 import QueueModes from '@/components/QueueModes.vue'
 import SleepControl from '@/components/SleepControl.vue'
@@ -342,8 +341,6 @@ function onKeydown(event: KeyboardEvent): void {
           <p v-if="modeError" class="error" role="alert">{{ modeError }}</p>
           <p v-if="commandError" class="error" role="alert">{{ commandError }}</p>
         </section>
-
-        <InputControl :current="state.input" :busy="busy" @input="onInput" />
       </div>
 
       <UpNext
@@ -366,8 +363,11 @@ function onKeydown(event: KeyboardEvent): void {
       v-if="settingsOpen && configLoaded"
       :config="config"
       :device="state.device"
+      :input="state.input"
+      :busy="busy"
       @close="closeSettings"
       @saved="onSaved"
+      @input="onInput"
     />
 
     <BrowsePanel v-if="browseOpen" :initial-tab="browseTab" @close="closeBrowse" />

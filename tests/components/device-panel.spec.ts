@@ -15,7 +15,7 @@ const DEVICE = {
 
 function mountPanel() {
   return mount(DevicePanel, {
-    props: { config: CONFIG, device: DEVICE },
+    props: { config: CONFIG, device: DEVICE, input: 'wifi' },
     attachTo: document.body,
   })
 }
@@ -30,6 +30,17 @@ describe('DevicePanel', () => {
     const input = wrapper.get('input')
 
     expect(document.activeElement).toBe(input.element)
+    wrapper.unmount()
+  })
+
+  it('switches the speaker input', async () => {
+    const wrapper = mountPanel()
+    const buttons = wrapper.findAll('.inputs button')
+    const bluetooth = buttons.find((button) => button.text() === 'Bluetooth')
+
+    await bluetooth?.trigger('click')
+
+    expect(wrapper.emitted('input')).toEqual([['bluetooth']])
     wrapper.unmount()
   })
 
