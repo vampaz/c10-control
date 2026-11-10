@@ -172,6 +172,12 @@ function onKeydown(event: KeyboardEvent): void {
     return
   }
 
+  if (event.key === 'Escape' && browseOpen.value) {
+    event.preventDefault()
+    closeBrowse()
+    return
+  }
+
   const { playback, volume } = state.value
 
   switch (event.key) {

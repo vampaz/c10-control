@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto'
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import type { PlayTarget, QueueItem, QueueSnapshot, RepeatMode, SpeakerState } from '../shared/types.ts'
 import { validateTarget } from './presets.ts'
 
@@ -24,9 +26,12 @@ export class QueueController {
   private startedAt = 0
   private advancing = false
   private readonly playTarget: (target: PlayTarget) => Promise<void>
+  private readonly storePath: string | null
 
-  constructor(playTarget: (target: PlayTarget) => Promise<void>) {
+  constructor(playTarget: (target: PlayTarget) => Promise<void>, storePath: string | null = null) {
     this.playTarget = playTarget
+    this.storePath = storePath
+    this.restore()
   }
 
   snapshot(): QueueSnapshot {
@@ -40,12 +45,18 @@ export class QueueController {
 
   /** Changes repeat and shuffle; both survive queue replacement. */
   setMode(patch: { repeat?: RepeatMode; shuffle?: boolean }): QueueSnapshot {
+    let changed = false
     if (patch.repeat && patch.repeat !== this.repeat) {
       this.repeat = patch.repeat
+      changed = true
     }
     if (typeof patch.shuffle === 'boolean' && patch.shuffle !== this.shuffle) {
       this.shuffle = patch.shuffle
       this.buildOrder()
+      changed = true
+    }
+    if (changed) {
+      this.persist()
     }
     return this.snapshot()
   }
@@ -54,6 +65,7 @@ export class QueueController {
     const target = validateTarget(input)
     this.items.push({ ...target, id: itemId(target.url) })
     this.order.push(this.items.length - 1)
+    this.persist()
     return this.snapshot()
   }
 
@@ -74,6 +86,7 @@ export class QueueController {
         this.activeIndex -= 1
       }
     }
+    this.persist()
     return this.snapshot()
   }
 
@@ -83,6 +96,7 @@ export class QueueController {
     this.activeIndex = null
     this.started = false
     this.startedAt = 0
+    this.persist()
     return this.snapshot()
   }
 
@@ -99,6 +113,7 @@ export class QueueController {
       await this.play(chosen)
     } else {
       this.order = []
+      this.persist()
     }
     return this.snapshot()
   }
@@ -112,6 +127,7 @@ export class QueueController {
     this.started = false
     this.startedAt = Date.now()
     this.advancing = false
+    this.persist()
     await this.playTarget(this.items[index])
     return true
   }
@@ -139,6 +155,7 @@ export class QueueController {
       // clear the active item while the speaker is still playing it.
       if (automatic) {
         this.activeIndex = null
+        this.persist()
         return true
       }
       return false
@@ -160,6 +177,68 @@ export class QueueController {
       return this.play(order[order.length - 1])
     }
     return this.play(this.activeIndex)
+  }
+
+  /** Restores the queue written by the previous process. */
+  private restore(): void {
+    if (!this.storePath) {
+      return
+    }
+    try {
+      const raw = JSON.parse(readFileSync(this.storePath, 'utf8')) as {
+        items?: unknown
+        activeIndex?: unknown
+        repeat?: unknown
+        shuffle?: unknown
+      }
+      if (!Array.isArray(raw.items)) {
+        return
+      }
+
+      const items: QueueItem[] = []
+      for (const entry of raw.items) {
+        try {
+          const target = validateTarget(entry as PlayTarget)
+          const id = typeof (entry as { id?: unknown }).id === 'string'
+            ? String((entry as { id: string }).id)
+            : itemId(target.url)
+          items.push({ ...target, id })
+        } catch {
+          // Skip entries that are no longer valid.
+        }
+      }
+
+      this.items = items
+      this.repeat = raw.repeat === 'all' || raw.repeat === 'one' ? raw.repeat : 'off'
+      this.shuffle = raw.shuffle === true
+      const active = raw.activeIndex
+      this.activeIndex = typeof active === 'number' && Number.isInteger(active) && active >= 0 && active < items.length
+        ? active
+        : null
+      this.buildOrder()
+    } catch {
+      // A missing or unreadable file starts with an empty queue.
+    }
+  }
+
+  /** Persists the queue; a failed write must not break playback. */
+  private persist(): void {
+    if (!this.storePath) {
+      return
+    }
+    try {
+      mkdirSync(dirname(this.storePath), { recursive: true })
+      const temporary = `${this.storePath}.tmp`
+      writeFileSync(temporary, `${JSON.stringify({
+        items: this.items,
+        activeIndex: this.activeIndex,
+        repeat: this.repeat,
+        shuffle: this.shuffle,
+      }, null, 2)}\n`, 'utf8')
+      renameSync(temporary, this.storePath)
+    } catch {
+      // Best effort only.
+    }
   }
 
   private playOrder(): number[] {

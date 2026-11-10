@@ -196,6 +196,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `.data/favorites.json` | Favorite stations |
 | `.data/presets.json` | Six preset slots |
 | `.data/playlists.json` | Named playlists and their tracks |
+| `.data/queue.json` | Current queue, active track, repeat and shuffle |
 
 All four live in the `c10-data` volume at `/data` inside the container. The `.data` directory is ignored by git. No library is configured by default: add folders in the settings dialog, or set `C10_LIBRARY_DIR` / `C10_LIBRARY_DIRS` as deployment defaults.
 
@@ -210,7 +211,7 @@ The library path is saved in `config.json`, but the folder contents are not. In 
 - **Source labels are partly inferred.** Only mode 10 (`Wi-Fi`, internet radio) and mode 2 (a pushed stream) were observed on the test unit; the other mode codes follow the Linkplay convention and are unverified here.
 - **Multiroom grouping is not implemented.** `multiroom:getSlaveList` answers with a count, but the join and leave commands are undocumented and could not be verified with a single speaker. The app does not ship untested group actions.
 - **Plex is not implemented.** Plex's media API answers `401` without an `X-Plex-Token`, even on the LAN. A link-code sign-in is possible; folder libraries and playlists were the priority.
-- **The queue is in memory.** Restarting the server clears it; the speaker keeps playing the current track.
+- **The queue is persisted.** `.data/queue.json` keeps the list, the active track, repeat and shuffle; the speaker keeps playing the current track while the server restarts.
 - **Library scans are cached for five minutes.** New files appear after the cache expires or after a restart.
 - **Local files need a speaker-reachable URL.** The speaker fetches the file itself, so `localhost` will not work. The app detects an address on the speaker's subnet, and `C10_MEDIA_URL` overrides it for Docker bridge networks. Docker compose mounts `C10_MUSIC_ROOT` read-only at `/host/music` and exposes it through the settings folder browser; paths outside that mount are not visible to the container.
 - **Sleep timer, presets and playlists are app-side.** They run in this server, not on the speaker, and stop if the server stops.

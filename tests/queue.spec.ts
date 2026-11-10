@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { emptySpeakerState, type PlayTarget, type PlaybackState, type SpeakerState } from '../shared/types.ts'
 import { QueueController } from '../server/queue.ts'
 
@@ -257,5 +260,36 @@ describe('QueueController', () => {
 
     expect(played).toHaveLength(1)
     expect(queue.snapshot().activeIndex).toBe(0)
+  })
+})
+
+describe('QueueController persistence', () => {
+  it('restores the queue, active track and mode from disk', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'c10-queue-'))
+    const store = join(directory, 'queue.json')
+
+    try {
+      const first = new QueueController(async () => undefined, store)
+      await first.replace([FIRST, SECOND])
+      first.setMode({ repeat: 'one' })
+
+      const restored = new QueueController(async () => undefined, store)
+
+      expect(restored.snapshot()).toMatchObject({ repeat: 'one', shuffle: false, activeIndex: 0 })
+      expect(restored.snapshot().items.map((item) => item.title)).toEqual(['First', 'Second'])
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('starts empty when the file cannot be read', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'c10-queue-'))
+
+    try {
+      const queue = new QueueController(async () => undefined, join(directory, 'missing.json'))
+      expect(queue.snapshot().items).toEqual([])
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 })

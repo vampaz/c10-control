@@ -1,4 +1,5 @@
 import type { Server } from 'node:http'
+import { join } from 'node:path'
 import type { AppConfig } from '../shared/types.ts'
 import { createRequestHandler } from './app.ts'
 import { getDataDirectory, loadConfig, saveConfig } from './config.ts'
@@ -32,7 +33,7 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
   poller.artworkFor = (url) => library.artworkUrl(url)
   library.warmup()
   const folders = new FolderBrowser(loadConfig)
-  const queue = new QueueController((target) => poller.playTarget(target))
+  const queue = new QueueController((target) => poller.playTarget(target), join(getDataDirectory(), 'queue.json'))
   poller.onState = (state) => void queue.onState(state)
   const sleep = new SleepTimer({
     getVolume: () => poller.current.volume.level,
