@@ -34,6 +34,7 @@ vi.mock('@/api', () => ({
   listPresets: () => listPresets(),
   fetchQueue: () => fetchQueue(),
   setQueueMode: (patch: { repeat?: string; shuffle?: boolean }) => setQueueMode(patch),
+  playQueue: vi.fn(async () => ({ items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] })),
   subscribeState: (onState: (state: SpeakerState) => void, onStatus: (open: boolean) => void) => subscribeState(onState, onStatus),
   sendCommand: (command: unknown) => sendCommand(command as never),
   playStream: vi.fn(async () => sampleState()),

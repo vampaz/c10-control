@@ -20,6 +20,11 @@ function label(target: PlayTarget | null): string {
   }
   return target.title?.trim() || target.url
 }
+
+function hideArt(event: Event): void {
+  const image = event.target as HTMLImageElement
+  image.style.display = 'none'
+}
 </script>
 
 <template>
@@ -28,12 +33,22 @@ function label(target: PlayTarget | null): string {
       <button
         v-if="target"
         type="button"
-        class="slot-main"
+        class="slot-main filled"
         :disabled="busy"
         @click="emit('play', target)"
       >
-        <span class="slot-index">{{ index + 1 }}</span>
-        <span class="slot-title">{{ label(target) }}</span>
+        <img
+          v-if="target.artworkUrl"
+          class="slot-art"
+          :src="target.artworkUrl"
+          alt=""
+          loading="lazy"
+          @error="hideArt"
+        />
+        <span class="slot-text">
+          <span class="slot-index">{{ index + 1 }}</span>
+          <span class="slot-title">{{ label(target) }}</span>
+        </span>
         <span class="sr-only">Play preset {{ index + 1 }}</span>
       </button>
       <button
@@ -114,6 +129,26 @@ function label(target: PlayTarget | null): string {
   color: var(--ink-dim);
 }
 
+.slot-main.filled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slot-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.slot-art {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  object-fit: cover;
+}
+
 .slot-index {
   font-size: 0.62rem;
   letter-spacing: 0.12em;
@@ -158,6 +193,11 @@ function label(target: PlayTarget | null): string {
 @media (max-width: 620px) {
   .presets {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Narrow tiles keep the title instead of the cover. */
+  .slot-art {
+    display: none;
   }
 }
 </style>

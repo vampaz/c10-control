@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { AppConfig, CommandType, PlayTarget, RepeatMode, SpeakerInput } from '@shared/types'
-import { clearPreset, fetchConfig, fetchQueue, listPresets, savePreset, setQueueMode } from '@/api'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { AppConfig, CommandType, PlayTarget, QueueSnapshot, RepeatMode, SpeakerInput } from '@shared/types'
+import { clearPreset, fetchConfig, fetchQueue, listPresets, playQueue, savePreset, setQueueMode } from '@/api'
 import { prettyModel } from '@/format'
 import { useSpeaker } from '@/composables/useSpeaker'
 import AppIcon from '@/components/AppIcon.vue'
@@ -14,33 +14,53 @@ import QueueModes from '@/components/QueueModes.vue'
 import SleepControl from '@/components/SleepControl.vue'
 import TrackInfo from '@/components/TrackInfo.vue'
 import TransportControls from '@/components/TransportControls.vue'
+import UpNext from '@/components/UpNext.vue'
 import VolumeControl from '@/components/VolumeControl.vue'
 
 const { state, stream, busy, commandError, online, playing, run, play } = useSpeaker()
 
 const config = ref<AppConfig>({ host: '', httpPort: 80, upnpPort: 49152, libraries: [], browseRoots: [], mediaBaseUrl: '' })
-const settingsOpen = ref(false)
+const configLoaded = ref(false)
+const settingsOpen = ref(new URLSearchParams(window.location.search).get('settings') === '1')
 const settingsButton = ref<HTMLButtonElement | null>(null)
 const browseOpen = ref(new URLSearchParams(window.location.search).get('browse') === '1')
-const browseStartTab = ((): 'radio' | 'library' | 'queue' | 'playlists' => {
+const initialBrowseTab = ((): 'radio' | 'library' | 'queue' | 'playlists' => {
   const value = new URLSearchParams(window.location.search).get('tab')
   return value === 'library' || value === 'queue' || value === 'playlists' ? value : 'radio'
 })()
+const browseTab = ref<'radio' | 'library' | 'queue' | 'playlists'>(initialBrowseTab)
 const browseButton = ref<HTMLButtonElement | null>(null)
 const presets = ref<(PlayTarget | null)[]>(Array.from({ length: 6 }, () => null))
 const presetError = ref<string | null>(null)
 const queueMode = ref<{ repeat: RepeatMode; shuffle: boolean }>({ repeat: 'off', shuffle: false })
 const modeError = ref<string | null>(null)
+const queue = ref<QueueSnapshot>({ items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] })
+
+async function refreshQueue(): Promise<void> {
+  const next = await fetchQueue().catch(() => null)
+  if (next) {
+    queue.value = next
+    queueMode.value = { repeat: next.repeat, shuffle: next.shuffle }
+  }
+}
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   config.value = await fetchConfig().catch(() => config.value)
+  configLoaded.value = true
   presets.value = await listPresets().catch(() => presets.value)
-  const queue = await fetchQueue().catch(() => null)
-  if (queue) {
-    queueMode.value = { repeat: queue.repeat, shuffle: queue.shuffle }
-  }
+  await refreshQueue()
 })
+
+// Auto-advance changes the queue on the server, so follow track changes.
+watch(() => state.value.playback.url, () => {
+  void refreshQueue()
+})
+
+const ambientKey = computed(() => state.value.playback.artworkUrl ?? 'none')
+const ambientStyle = computed(() => state.value.playback.artworkUrl
+  ? { backgroundImage: `url("${state.value.playback.artworkUrl}")` }
+  : {})
 
 const currentTarget = computed<PlayTarget | null>(() => {
   const { playback } = state.value
@@ -111,6 +131,20 @@ function onRepeat(mode: RepeatMode): void {
 
 function onShuffle(enabled: boolean): void {
   void setMode({ shuffle: enabled })
+}
+
+async function onUpNext(index: number): Promise<void> {
+  modeError.value = null
+  try {
+    queue.value = await playQueue(index)
+  } catch (error) {
+    modeError.value = error instanceof Error ? error.message : 'That track could not play'
+  }
+}
+
+function openQueue(): void {
+  browseTab.value = 'queue'
+  browseOpen.value = true
 }
 
 function onPresetPlay(target: PlayTarget): void {
@@ -218,6 +252,10 @@ function onKeydown(event: KeyboardEvent): void {
 
 <template>
   <div class="app" :class="{ 'is-playing': playing, 'browse-open': browseOpen }">
+    <div class="ambient" aria-hidden="true">
+      <div :key="ambientKey" class="ambient-image" :style="ambientStyle" />
+    </div>
+
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark">C10</span>
@@ -256,55 +294,67 @@ function onKeydown(event: KeyboardEvent): void {
     </header>
 
     <main class="console">
-      <section class="panel" aria-label="Controls">
-        <div class="now-playing">
-          <ArtworkTile :playback="state.playback" :playing="playing" />
-          <TrackInfo :playback="state.playback" :playing="playing" :online="online" />
-        </div>
+      <div class="player-column">
+        <section class="panel" aria-label="Controls">
+          <div class="now-playing">
+            <ArtworkTile :playback="state.playback" :playing="playing" />
+            <TrackInfo :playback="state.playback" :playing="playing" :online="online" />
+          </div>
 
 
-        <div v-if="!online && state.updatedAt > 0" class="notice" role="status">
-          <p class="notice-title">Speaker unreachable</p>
-          <p class="notice-text">{{ offlineHint }}</p>
-          <button type="button" class="text-button" @click="openSettings">Change device</button>
-        </div>
+          <div v-if="!online && state.updatedAt > 0" class="notice" role="status">
+            <p class="notice-title">Speaker unreachable</p>
+            <p class="notice-text">{{ offlineHint }}</p>
+            <button type="button" class="text-button" @click="openSettings">Change device</button>
+          </div>
 
-        <TransportControls
-          :status="state.playback.status"
-          :position="state.playback.position"
-          :duration="state.playback.duration"
-          :is-live="state.playback.isLive"
-          :busy="busy"
-          @command="onCommand"
-        />
+          <TransportControls
+            :status="state.playback.status"
+            :position="state.playback.position"
+            :duration="state.playback.duration"
+            :is-live="state.playback.isLive"
+            :busy="busy"
+            @command="onCommand"
+          />
 
-        <QueueModes
-          :repeat="queueMode.repeat"
-          :shuffle="queueMode.shuffle"
-          :busy="busy"
-          @repeat="onRepeat"
-          @shuffle="onShuffle"
-        />
+          <QueueModes
+            :repeat="queueMode.repeat"
+            :shuffle="queueMode.shuffle"
+            :busy="busy"
+            @repeat="onRepeat"
+            @shuffle="onShuffle"
+          />
 
-        <VolumeControl :level="state.volume.level" :muted="state.volume.muted" :busy="busy" @volume="onVolume" @mute="onMute" />
+          <VolumeControl :level="state.volume.level" :muted="state.volume.muted" :busy="busy" @volume="onVolume" @mute="onMute" />
 
-        <SleepControl />
+          <SleepControl />
 
-        <PresetBar
-          :presets="presets"
-          :current="currentTarget"
-          :busy="busy"
-          @play="onPresetPlay"
-          @save="onPresetSave"
-          @clear="onPresetClear"
-        />
+          <PresetBar
+            :presets="presets"
+            :current="currentTarget"
+            :busy="busy"
+            @play="onPresetPlay"
+            @save="onPresetSave"
+            @clear="onPresetClear"
+          />
 
-        <p v-if="presetError" class="error" role="alert">{{ presetError }}</p>
-        <p v-if="modeError" class="error" role="alert">{{ modeError }}</p>
-        <p v-if="commandError" class="error" role="alert">{{ commandError }}</p>
-      </section>
+          <p v-if="presetError" class="error" role="alert">{{ presetError }}</p>
+          <p v-if="modeError" class="error" role="alert">{{ modeError }}</p>
+          <p v-if="commandError" class="error" role="alert">{{ commandError }}</p>
+        </section>
 
-      <InputControl :current="state.input" :busy="busy" @input="onInput" />
+        <InputControl :current="state.input" :busy="busy" @input="onInput" />
+      </div>
+
+      <UpNext
+        v-if="!browseOpen"
+        :items="queue.items"
+        :active-index="queue.activeIndex"
+        :order="queue.order"
+        :busy="busy"
+        @play="onUpNext"
+        @open="openQueue"
+      />
     </main>
 
     <footer class="footer">
@@ -313,13 +363,13 @@ function onKeydown(event: KeyboardEvent): void {
     </footer>
 
     <DevicePanel
-      v-if="settingsOpen"
+      v-if="settingsOpen && configLoaded"
       :config="config"
       :device="state.device"
       @close="closeSettings"
       @saved="onSaved"
     />
 
-    <BrowsePanel v-if="browseOpen" :initial-tab="browseStartTab" @close="closeBrowse" />
+    <BrowsePanel v-if="browseOpen" :initial-tab="browseTab" @close="closeBrowse" />
   </div>
 </template>

@@ -287,18 +287,19 @@ async function save(): Promise<void> {
   z-index: 20;
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
   background: var(--overlay-strong);
   backdrop-filter: blur(8px);
 }
 
 .dialog {
   width: min(440px, 100%);
-  max-height: 90vh;
+  max-height: min(90vh, 88svh);
   display: grid;
   gap: 18px;
   padding: 22px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 20px;
   border: 1px solid var(--line);
   background: var(--surface-deep);
@@ -306,9 +307,16 @@ async function save(): Promise<void> {
 }
 
 .dialog-head {
+  position: sticky;
+  top: -22px;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin: -22px -22px 0;
+  padding: 22px 22px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-deep);
 }
 
 .dialog-head h2 {
@@ -552,8 +560,14 @@ async function save(): Promise<void> {
 }
 
 .dialog-foot {
+  position: sticky;
+  bottom: -22px;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  margin: 0 -22px -22px;
+  padding: 12px 22px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-deep);
 }
 </style>
