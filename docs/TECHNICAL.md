@@ -228,6 +228,7 @@ docker-compose.yml        container definition: port, volumes, env, health
 .env.example              environment template for compose
 LICENSE                   MIT
 SECURITY.md               security notes for a LAN-only app
+docs/                     user and technical documentation
 public/                   favicon and robots.txt
 server/
   index.ts        production entry point (static files + API)
