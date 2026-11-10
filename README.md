@@ -46,11 +46,21 @@ npm start          # http://localhost:8787
 For an always-on machine on your network:
 
 ```sh
-cp .env.example .env      # set C10_HOST and C10_MUSIC_DIR
+cp .env.example .env      # set C10_HOST
 docker compose up -d --build
 ```
 
-Open `http://<server>:8787`. Saved settings live in the `c10-data` volume. Your music folder is mounted at `/music` inside the container, but no library is configured by default: add `/music` in **Speaker settings → Music folders**, or set `C10_LIBRARY_DIR=/music` in `.env` to preconfigure it.
+Open `http://<server>:8787`. Saved settings live in the `c10-data` volume.
+
+No music folder is mounted by default. To play local files, add a read-only volume to `docker-compose.yml`:
+
+```yaml
+    volumes:
+      - c10-data:/data
+      - /path/to/music:/music:ro
+```
+
+Then add `/music` in **Speaker settings → Music folders**, or set `C10_LIBRARY_DIR=/music` in `.env`.
 
 If you use the default bridge network, the speaker cannot fetch local files from the container. Set `C10_MEDIA_URL=http://<host-lan-ip>:8787` in `.env`, or use host networking on Linux. See the [configuration](#configuration) and [troubleshooting](#troubleshooting) sections.
 
@@ -110,7 +120,7 @@ The **Playlists** tab creates, renames and deletes lists. Press **Add the curren
 
 **No speakers are found.** SSDP discovery needs multicast. Enter the address by hand if your network blocks it. Discovery also does not work in Docker bridge networking; use host networking on Linux or enter the address.
 
-**Local files do not play.** The speaker fetches the file itself, so `localhost` will not work. Set **Media URL** to the LAN address of this machine, for example `http://192.168.1.50:8787`. In Docker bridge networking, set `C10_MEDIA_URL` in `.env`.
+**Local files do not play.** The speaker fetches the file itself, so `localhost` will not work. Set **Media URL** to the LAN address of this machine, for example `http://192.168.1.50:8787`. In Docker bridge networking, set `C10_MEDIA_URL` in `.env`. In Docker, also make sure the music folder is mounted and added in settings.
 
 **New files do not appear.** The library is cached for five minutes. Wait for the cache to expire, or restart the app.
 

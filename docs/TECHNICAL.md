@@ -201,7 +201,7 @@ All four live in the `c10-data` volume at `/data` inside the container. The `.da
 - **Plex is not implemented.** Plex's media API answers `401` without an `X-Plex-Token`, even on the LAN. A link-code sign-in is possible; folder libraries and playlists were the priority.
 - **The queue is in memory.** Restarting the server clears it; the speaker keeps playing the current track.
 - **Library scans are cached for five minutes.** New files appear after the cache expires or after a restart.
-- **Local files need a speaker-reachable URL.** The speaker fetches the file itself, so `localhost` will not work. The app detects an address on the speaker's subnet, and `C10_MEDIA_URL` overrides it for Docker bridge networks.
+- **Local files need a speaker-reachable URL.** The speaker fetches the file itself, so `localhost` will not work. The app detects an address on the speaker's subnet, and `C10_MEDIA_URL` overrides it for Docker bridge networks. Docker does not mount a music folder by default; add a read-only volume and then add that path as a library.
 - **Sleep timer, presets and playlists are app-side.** They run in this server, not on the speaker, and stop if the server stops.
 - **Discovery needs multicast.** If SSDP is blocked on your network, or the app runs in a Docker bridge network, enter the address by hand or set `C10_HOST`.
 - **Radio search needs outbound HTTPS** to `de1.api.radio-browser.info`. Playback itself only needs the speaker to reach the stream.

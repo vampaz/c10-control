@@ -19,8 +19,8 @@ services:
     volumes:
       # Keeps the speaker address chosen in the settings dialog across restarts.
       - c10-data:/data
-      # Your music folder, read-only. Set C10_MUSIC_DIR in .env.
-      - ${C10_MUSIC_DIR:-./music}:/music:ro
+      # Optional: mount a music folder, then add it in Speaker settings.
+      # - /path/to/music:/music:ro
     # SSDP discovery needs multicast, which a bridge network does not carry.
     # On a Linux host, uncomment this and remove `ports` — host mode publishes
     # the port directly instead of mapping it.
