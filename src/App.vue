@@ -278,8 +278,6 @@ function onKeydown(event: KeyboardEvent): void {
 
         <VolumeControl :level="state.volume.level" :muted="state.volume.muted" :busy="busy" @volume="onVolume" @mute="onMute" />
 
-        <InputControl :current="state.input" :busy="busy" @input="onInput" />
-
         <SleepControl />
 
         <PresetBar
@@ -295,6 +293,8 @@ function onKeydown(event: KeyboardEvent): void {
         <p v-if="modeError" class="error" role="alert">{{ modeError }}</p>
         <p v-if="commandError" class="error" role="alert">{{ commandError }}</p>
       </section>
+
+      <InputControl :current="state.input" :busy="busy" @input="onInput" />
     </main>
 
     <footer class="footer">
