@@ -1,0 +1,204 @@
+import { createServer, type Server } from 'node:http'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import type { AppConfig } from '../shared/types.ts'
+import { LibraryService, parseRange } from '../server/library.ts'
+
+const directories: string[] = []
+const servers: Server[] = []
+
+function fixture(): { root: string; extra: string; outside: string; config: AppConfig } {
+  const root = mkdtempSync(join(tmpdir(), 'c10-library-'))
+  const extra = mkdtempSync(join(tmpdir(), 'c10-library-extra-'))
+  const outside = mkdtempSync(join(tmpdir(), 'c10-outside-'))
+  directories.push(root, extra, outside)
+  mkdirSync(join(root, 'sub'))
+  writeFileSync(join(root, 'a.mp3'), '0123456789')
+  writeFileSync(join(root, 'sub', 'b.flac'), 'flac')
+  writeFileSync(join(root, 'notes.txt'), 'not audio')
+  writeFileSync(join(root, '.hidden.mp3'), 'hidden')
+  writeFileSync(join(extra, 'c.wav'), 'wav')
+  writeFileSync(join(outside, 'secret.mp3'), 'secret')
+  symlinkSync(join(outside, 'secret.mp3'), join(root, 'escape.mp3'))
+
+  return {
+    root,
+    extra,
+    outside,
+    config: {
+      host: '192.168.1.100',
+      httpPort: 80,
+      upnpPort: 49152,
+      libraries: [
+        { id: 'main', name: 'Main', path: root },
+        { id: 'extra', name: 'Extra', path: extra },
+      ],
+      mediaBaseUrl: 'http://192.168.1.135:5173',
+    },
+  }
+}
+
+afterEach(() => {
+  for (const server of servers.splice(0)) {
+    server.close()
+  }
+  for (const directory of directories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+describe('LibraryService.listing', () => {
+  it('indexes audio files from every library and ignores everything else', async () => {
+    const { config } = fixture()
+    const listing = await new LibraryService(() => config, 5173).listing()
+
+    expect(listing.entries.map((entry) => entry.path)).toEqual(['a.mp3', 'sub/b.flac', 'c.wav'])
+    expect(listing.entries.map((entry) => entry.libraryName)).toEqual(['Main', 'Main', 'Extra'])
+    expect(listing.total).toBe(3)
+    expect(listing.entries[0]).toMatchObject({ name: 'a', size: 10 })
+  })
+
+  it('builds a speaker-reachable URL with the library id', async () => {
+    const { config } = fixture()
+    const listing = await new LibraryService(() => config, 5173).listing()
+
+    expect(listing.mediaBaseUrl).toBe('http://192.168.1.135:5173')
+    expect(listing.entries[0].url).toBe('http://192.168.1.135:5173/api/library/file?library=main&path=a.mp3')
+    expect(listing.entries[1].url).toContain('path=sub%2Fb.flac')
+  })
+
+  it('filters by library and by text', async () => {
+    const { config } = fixture()
+    const library = new LibraryService(() => config, 5173)
+
+    const extra = await library.listing({ libraryId: 'extra' })
+    expect(extra.entries.map((entry) => entry.path)).toEqual(['c.wav'])
+    expect(extra.libraries).toHaveLength(2)
+
+    const search = await library.listing({ query: 'b.flac' })
+    expect(search.entries.map((entry) => entry.path)).toEqual(['sub/b.flac'])
+    expect(search.total).toBe(1)
+  })
+
+  it('pages the results', async () => {
+    const { config } = fixture()
+    const library = new LibraryService(() => config, 5173)
+
+    const first = await library.listing({ limit: 1, offset: 0 })
+    const second = await library.listing({ limit: 1, offset: 1 })
+
+    expect(first.entries).toHaveLength(1)
+    expect(first.total).toBe(3)
+    expect(second.entries[0].path).toBe('sub/b.flac')
+  })
+
+  it('returns an empty listing when no folder is configured', async () => {
+    const { config } = fixture()
+    const listing = await new LibraryService(() => ({ ...config, libraries: [] }), 5173).listing()
+
+    expect(listing.libraries).toEqual([])
+    expect(listing.entries).toEqual([])
+    expect(listing.total).toBe(0)
+  })
+})
+
+describe('LibraryService.resolveFile', () => {
+  it('accepts a file inside its library', () => {
+    const { config } = fixture()
+    const library = new LibraryService(() => config, 5173)
+
+    expect(library.resolveFile('main', 'a.mp3')).toContain('a.mp3')
+    expect(library.resolveFile('main', 'sub/b.flac')).toContain('b.flac')
+  })
+
+  it('rejects traversal, unknown libraries, non-audio files and symlink escapes', () => {
+    const { config } = fixture()
+    const library = new LibraryService(() => config, 5173)
+
+    expect(library.resolveFile('main', '../secret.mp3')).toBeNull()
+    expect(library.resolveFile('nope', 'a.mp3')).toBeNull()
+    expect(library.resolveFile('main', 'notes.txt')).toBeNull()
+    expect(library.resolveFile('main', 'escape.mp3')).toBeNull()
+    expect(library.resolveFile('main', '')).toBeNull()
+  })
+})
+
+describe('parseRange', () => {
+  it('parses common byte ranges', () => {
+    expect(parseRange('bytes=0-9', 100)).toEqual({ start: 0, end: 9 })
+    expect(parseRange('bytes=10-', 100)).toEqual({ start: 10, end: 99 })
+    expect(parseRange('bytes=-10', 100)).toEqual({ start: 90, end: 99 })
+    expect(parseRange('bytes=90-200', 100)).toEqual({ start: 90, end: 99 })
+  })
+
+  it('rejects malformed and unsatisfiable ranges', () => {
+    expect(parseRange(undefined, 100)).toBeNull()
+    expect(parseRange('bytes=100-', 100)).toBeNull()
+    expect(parseRange('bytes=5-2', 100)).toBeNull()
+    expect(parseRange('items=0-1', 100)).toBeNull()
+    expect(parseRange('bytes=-', 100)).toBeNull()
+  })
+})
+
+describe('LibraryService.stream', () => {
+  async function startServer(config: AppConfig): Promise<string> {
+    const library = new LibraryService(() => config, 5173)
+    const server = createServer((request, response) => {
+      const params = new URL(request.url ?? '/', 'http://localhost').searchParams
+      if (!library.stream(params.get('library') ?? '', params.get('path') ?? '', request, response)) {
+        response.writeHead(404).end()
+      }
+    })
+    servers.push(server)
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (address === null || typeof address === 'string') {
+      throw new Error('No port')
+    }
+    return `http://127.0.0.1:${address.port}`
+  }
+
+  it('serves a byte range', async () => {
+    const { config } = fixture()
+    const base = await startServer(config)
+
+    const response = await fetch(`${base}/?library=main&path=a.mp3`, { headers: { Range: 'bytes=0-3' } })
+
+    expect(response.status).toBe(206)
+    expect(response.headers.get('content-range')).toBe('bytes 0-3/10')
+    expect(response.headers.get('accept-ranges')).toBe('bytes')
+    expect(await response.text()).toBe('0123')
+  })
+
+  it('serves the whole file without a range', async () => {
+    const { config } = fixture()
+    const base = await startServer(config)
+
+    const response = await fetch(`${base}/?library=main&path=a.mp3`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('audio/mpeg')
+    expect(await response.text()).toBe('0123456789')
+  })
+
+  it('answers 416 for an unsatisfiable range', async () => {
+    const { config } = fixture()
+    const base = await startServer(config)
+
+    const response = await fetch(`${base}/?library=main&path=a.mp3`, { headers: { Range: 'bytes=99-' } })
+
+    expect(response.status).toBe(416)
+    expect(response.headers.get('content-range')).toBe('bytes */10')
+  })
+
+  it('answers 404 for a file outside the root', async () => {
+    const { config } = fixture()
+    const base = await startServer(config)
+
+    const response = await fetch(`${base}/?library=main&path=..%2Fsecret.mp3`)
+
+    expect(response.status).toBe(404)
+  })
+})

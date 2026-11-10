@@ -1,0 +1,30 @@
+services:
+  c10-control:
+    build: .
+    image: c10-control:latest
+    container_name: c10-control
+    restart: unless-stopped
+    ports:
+      - '8787:8787'
+    environment:
+      C10_HOST: ${C10_HOST:-192.168.1.100}
+      C10_HTTP_PORT: ${C10_HTTP_PORT:-80}
+      C10_UPNP_PORT: ${C10_UPNP_PORT:-49152}
+      C10_LIBRARY_DIR: /music
+      C10_LIBRARY_DIRS: ${C10_LIBRARY_DIRS:-}
+      # The speaker fetches local files from this URL. Set it to the host's LAN
+      # address when the container uses the default bridge network.
+      C10_MEDIA_URL: ${C10_MEDIA_URL:-}
+      PORT: 8787
+    volumes:
+      # Keeps the speaker address chosen in the settings dialog across restarts.
+      - c10-data:/data
+      # Your music folder, read-only. Set C10_MUSIC_DIR in .env.
+      - ${C10_MUSIC_DIR:-./music}:/music:ro
+    # SSDP discovery needs multicast, which a bridge network does not carry.
+    # On a Linux host, uncomment this and remove `ports` — host mode publishes
+    # the port directly instead of mapping it.
+    # network_mode: host
+
+volumes:
+  c10-data:

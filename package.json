@@ -1,0 +1,55 @@
+{
+  "name": "audiopro-c10",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local companion app for the Audio Pro C10 (Linkplay A28) speaker",
+  "license": "MIT",
+  "author": "Carlos Rodrigues",
+  "homepage": "https://github.com/vampaz/c10-control#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vampaz/c10-control.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vampaz/c10-control/issues"
+  },
+  "keywords": [
+    "audio-pro",
+    "c10",
+    "linkplay",
+    "upnp",
+    "speaker",
+    "vue",
+    "typescript",
+    "self-hosted"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node --watch-path=server server/dev.ts",
+    "build": "vite build",
+    "start": "NODE_ENV=production node server/index.ts",
+    "lint": "eslint .",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/test-utils": "^2.5.1",
+    "eslint": "^10.14.0",
+    "eslint-plugin-vue": "^10.12.1",
+    "happy-dom": "^21.0.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0",
+    "vue": "^3.5.45",
+    "vue-tsc": "^3.3.14"
+  }
+}

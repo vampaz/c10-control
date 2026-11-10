@@ -1,0 +1,195 @@
+import type { AppConfig, CommandRequest, DiscoveredDevice, Favorite, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, SleepStatus, SpeakerState } from '@shared/types'
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(payload.error ?? `Request failed with HTTP ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+export function fetchState(): Promise<SpeakerState> {
+  return request<SpeakerState>('/api/state')
+}
+
+export function sendCommand(command: CommandRequest): Promise<SpeakerState> {
+  return request<SpeakerState>('/api/command', {
+    method: 'POST',
+    body: JSON.stringify(command),
+  })
+}
+
+export function fetchConfig(): Promise<AppConfig> {
+  return request<AppConfig>('/api/config')
+}
+
+export function updateConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
+  return request<AppConfig>('/api/config', {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  })
+}
+
+export async function discoverDevices(): Promise<DiscoveredDevice[]> {
+  const result = await request<{ devices: DiscoveredDevice[] }>('/api/discovery')
+  return result.devices
+}
+
+export async function playStream(target: PlayTarget): Promise<SpeakerState> {
+  return request<SpeakerState>('/api/play', {
+    method: 'POST',
+    body: JSON.stringify(target),
+  })
+}
+
+export async function searchRadio(query: string): Promise<RadioStation[]> {
+  const result = await request<{ stations: RadioStation[] }>(`/api/radio/search?q=${encodeURIComponent(query)}`)
+  return result.stations
+}
+
+export function fetchLibrary(query = '', limit = 200, offset = 0, libraryId = ''): Promise<LibraryListing> {
+  const params = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) })
+  if (libraryId) {
+    params.set('library', libraryId)
+  }
+  return request<LibraryListing>(`/api/library?${params}`)
+}
+
+export async function listFavorites(): Promise<Favorite[]> {
+  const result = await request<{ favorites: Favorite[] }>('/api/favorites')
+  return result.favorites
+}
+
+export async function addFavorite(station: RadioStation): Promise<Favorite[]> {
+  const result = await request<{ favorites: Favorite[] }>('/api/favorites', {
+    method: 'POST',
+    body: JSON.stringify(station),
+  })
+  return result.favorites
+}
+
+export async function removeFavorite(id: string): Promise<Favorite[]> {
+  const result = await request<{ favorites: Favorite[] }>(`/api/favorites/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+  return result.favorites
+}
+
+export async function listPresets(): Promise<(PlayTarget | null)[]> {
+  const result = await request<{ presets: (PlayTarget | null)[] }>('/api/presets')
+  return result.presets
+}
+
+export async function savePreset(index: number, target: PlayTarget): Promise<(PlayTarget | null)[]> {
+  const result = await request<{ presets: (PlayTarget | null)[] }>(`/api/presets/${index}`, {
+    method: 'PUT',
+    body: JSON.stringify(target),
+  })
+  return result.presets
+}
+
+export async function clearPreset(index: number): Promise<(PlayTarget | null)[]> {
+  const result = await request<{ presets: (PlayTarget | null)[] }>(`/api/presets/${index}`, {
+    method: 'DELETE',
+  })
+  return result.presets
+}
+
+export function getSleep(): Promise<SleepStatus> {
+  return request<SleepStatus>('/api/sleep')
+}
+
+export function startSleep(minutes: number): Promise<SleepStatus> {
+  return request<SleepStatus>('/api/sleep', {
+    method: 'POST',
+    body: JSON.stringify({ minutes }),
+  })
+}
+
+export function cancelSleep(): Promise<SleepStatus> {
+  return request<SleepStatus>('/api/sleep', { method: 'DELETE' })
+}
+
+export function fetchQueue(): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/queue')
+}
+
+export function addToQueue(target: PlayTarget): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/queue', {
+    method: 'POST',
+    body: JSON.stringify(target),
+  })
+}
+
+export function removeFromQueue(id: string): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>(`/api/queue/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export function clearQueue(): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/queue', { method: 'DELETE' })
+}
+
+export function playQueue(index = 0): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/queue/play', {
+    method: 'POST',
+    body: JSON.stringify({ index }),
+  })
+}
+
+async function playlistRequest(path: string, init?: RequestInit): Promise<Playlist[]> {
+  const result = await request<{ playlists: Playlist[] }>(path, init)
+  return result.playlists
+}
+
+export function fetchPlaylists(): Promise<Playlist[]> {
+  return playlistRequest('/api/playlists')
+}
+
+export function createPlaylist(name: string): Promise<Playlist[]> {
+  return playlistRequest('/api/playlists', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export function renamePlaylist(id: string, name: string): Promise<Playlist[]> {
+  return playlistRequest(`/api/playlists/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export function deletePlaylist(id: string): Promise<Playlist[]> {
+  return playlistRequest(`/api/playlists/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export function addCurrentToPlaylist(id: string): Promise<Playlist[]> {
+  return playlistRequest(`/api/playlists/${encodeURIComponent(id)}/current`, { method: 'POST' })
+}
+
+export function removePlaylistItem(id: string, itemId: string): Promise<Playlist[]> {
+  return playlistRequest(`/api/playlists/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`, {
+    method: 'DELETE',
+  })
+}
+
+export function playPlaylist(id: string): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>(`/api/playlists/${encodeURIComponent(id)}/play`, { method: 'POST' })
+}
+
+export function subscribeState(onState: (state: SpeakerState) => void, onStatus: (open: boolean) => void): () => void {
+  const source = new EventSource('/api/events')
+  source.onopen = () => onStatus(true)
+  source.onerror = () => onStatus(false)
+  source.onmessage = (event) => {
+    onState(JSON.parse(event.data) as SpeakerState)
+  }
+
+  return () => source.close()
+}
