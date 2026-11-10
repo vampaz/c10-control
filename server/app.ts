@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { AppConfig, CommandRequest, CommandType, PlayTarget, RadioStation } from '../shared/types.ts'
+import type { AppConfig, CommandRequest, CommandType, PlayTarget, RadioStation, RepeatMode } from '../shared/types.ts'
 import type { FavoriteStore } from './favorites.ts'
 import type { FolderBrowser } from './folders.ts'
 import type { LibraryService } from './library.ts'
@@ -337,6 +337,23 @@ export function createRequestHandler(deps: AppDependencies): (request: IncomingM
           : 0
         await deps.queue.play(index)
         sendJson(response, 200, deps.queue.snapshot())
+        return
+      }
+
+      if (pathname === '/api/queue/mode' && method === 'PUT') {
+        const body = await readJsonBody(request)
+        const patch = typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}
+        const repeat = patch.repeat
+        if (repeat !== undefined && repeat !== 'off' && repeat !== 'all' && repeat !== 'one') {
+          throw new Error('Repeat must be off, all or one')
+        }
+        if (patch.shuffle !== undefined && typeof patch.shuffle !== 'boolean') {
+          throw new Error('Shuffle must be a boolean')
+        }
+        sendJson(response, 200, deps.queue.setMode({
+          repeat: repeat as RepeatMode | undefined,
+          shuffle: patch.shuffle as boolean | undefined,
+        }))
         return
       }
 

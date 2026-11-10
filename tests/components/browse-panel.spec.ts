@@ -18,7 +18,7 @@ const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
   offset: 0,
   mediaBaseUrl: '',
 }))
-const emptyQueue: QueueSnapshot = { items: [], activeIndex: null }
+const emptyQueue: QueueSnapshot = { items: [], activeIndex: null, repeat: 'off', shuffle: false }
 const fetchQueue = vi.fn<() => Promise<QueueSnapshot>>(async () => emptyQueue)
 const addToQueue = vi.fn<(target: unknown) => Promise<QueueSnapshot>>(async () => emptyQueue)
 const removeFromQueue = vi.fn<(id: string) => Promise<QueueSnapshot>>(async () => emptyQueue)

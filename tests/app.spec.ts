@@ -492,6 +492,39 @@ describe('library', () => {
   })
 })
 
+describe('queue modes', () => {
+  it('sets repeat and shuffle', async () => {
+    const setMode = vi.fn(() => ({ items: [], activeIndex: null, repeat: 'all', shuffle: true }))
+    const queue = { setMode } as unknown as QueueController
+    const { url } = await start(makeDeps({ queue }))
+
+    const response = await fetch(`${url}/api/queue/mode`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repeat: 'all', shuffle: true }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(setMode).toHaveBeenCalledWith({ repeat: 'all', shuffle: true })
+    expect((await response.json()) as { repeat: string }).toMatchObject({ repeat: 'all', shuffle: true })
+  })
+
+  it('rejects an unknown repeat mode', async () => {
+    const setMode = vi.fn()
+    const queue = { setMode } as unknown as QueueController
+    const { url } = await start(makeDeps({ queue }))
+
+    const response = await fetch(`${url}/api/queue/mode`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repeat: 'sometimes' }),
+    })
+
+    expect(response.status).toBe(400)
+    expect(setMode).not.toHaveBeenCalled()
+  })
+})
+
 describe('queue', () => {
   it('adds a track to the queue', async () => {
     const add = vi.fn(() => ({ items: [], activeIndex: null }))

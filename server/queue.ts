@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { PlayTarget, QueueItem, QueueSnapshot, SpeakerState } from '../shared/types.ts'
+import type { PlayTarget, QueueItem, QueueSnapshot, RepeatMode, SpeakerState } from '../shared/types.ts'
 import { validateTarget } from './presets.ts'
 
 let sequence = 0
@@ -16,6 +16,10 @@ function itemId(url: string): string {
 export class QueueController {
   private items: QueueItem[] = []
   private activeIndex: number | null = null
+  private repeat: RepeatMode = 'off'
+  private shuffle = false
+  /** Positions of `items` in play order; identity until shuffle is enabled. */
+  private order: number[] = []
   private started = false
   private startedAt = 0
   private advancing = false
@@ -26,12 +30,30 @@ export class QueueController {
   }
 
   snapshot(): QueueSnapshot {
-    return { items: this.items, activeIndex: this.activeIndex }
+    return {
+      items: this.items,
+      activeIndex: this.activeIndex,
+      repeat: this.repeat,
+      shuffle: this.shuffle,
+    }
+  }
+
+  /** Changes repeat and shuffle; both survive queue replacement. */
+  setMode(patch: { repeat?: RepeatMode; shuffle?: boolean }): QueueSnapshot {
+    if (patch.repeat && patch.repeat !== this.repeat) {
+      this.repeat = patch.repeat
+    }
+    if (typeof patch.shuffle === 'boolean' && patch.shuffle !== this.shuffle) {
+      this.shuffle = patch.shuffle
+      this.buildOrder()
+    }
+    return this.snapshot()
   }
 
   add(input: PlayTarget): QueueSnapshot {
     const target = validateTarget(input)
     this.items.push({ ...target, id: itemId(target.url) })
+    this.order.push(this.items.length - 1)
     return this.snapshot()
   }
 
@@ -42,6 +64,9 @@ export class QueueController {
     }
 
     this.items.splice(index, 1)
+    this.order = this.order
+      .filter((position) => position !== index)
+      .map((position) => (position > index ? position - 1 : position))
     if (this.activeIndex !== null) {
       if (index === this.activeIndex) {
         this.activeIndex = null
@@ -54,6 +79,7 @@ export class QueueController {
 
   clear(): QueueSnapshot {
     this.items = []
+    this.order = []
     this.activeIndex = null
     this.started = false
     this.startedAt = 0
@@ -68,7 +94,11 @@ export class QueueController {
     this.startedAt = 0
     if (this.items.length) {
       const index = Number.isInteger(startIndex) ? startIndex : 0
-      await this.play(Math.min(Math.max(0, index), this.items.length - 1))
+      const chosen = Math.min(Math.max(0, index), this.items.length - 1)
+      this.buildOrder(chosen)
+      await this.play(chosen)
+    } else {
+      this.order = []
     }
     return this.snapshot()
   }
@@ -86,13 +116,25 @@ export class QueueController {
     return true
   }
 
-  /** Returns true when the queue handled the request. */
-  async next(): Promise<boolean> {
+  /**
+   * Advances in play order. Auto-advance repeats the current track when repeat
+   * is "one", while an explicit next always moves on.
+   */
+  async next(automatic = false): Promise<boolean> {
     if (this.activeIndex === null) {
       return false
     }
-    const next = this.activeIndex + 1
-    if (next >= this.items.length) {
+    if (automatic && this.repeat === 'one') {
+      return this.play(this.activeIndex)
+    }
+
+    const order = this.playOrder()
+    const position = order.indexOf(this.activeIndex)
+    const next = position === -1 ? undefined : order[position + 1]
+    if (next === undefined) {
+      if (this.repeat === 'all' && order.length) {
+        return this.play(order[0])
+      }
       this.activeIndex = null
       return true
     }
@@ -103,7 +145,38 @@ export class QueueController {
     if (this.activeIndex === null) {
       return false
     }
-    return this.play(Math.max(0, this.activeIndex - 1))
+
+    const order = this.playOrder()
+    const position = order.indexOf(this.activeIndex)
+    if (position > 0) {
+      return this.play(order[position - 1])
+    }
+    if (this.repeat === 'all' && order.length) {
+      return this.play(order[order.length - 1])
+    }
+    return this.play(this.activeIndex)
+  }
+
+  private playOrder(): number[] {
+    return this.order.length ? this.order : this.items.map((_, index) => index)
+  }
+
+  /** Rebuilds the play order, keeping `first` at the front when given. */
+  private buildOrder(first: number | null = this.activeIndex): void {
+    const indices = this.items.map((_, index) => index)
+    if (!this.shuffle) {
+      this.order = indices
+      return
+    }
+
+    const rest = indices.filter((index) => index !== first)
+    for (let position = rest.length - 1; position > 0; position -= 1) {
+      const random = Math.floor(Math.random() * (position + 1))
+      const swap = rest[position]
+      rest[position] = rest[random]
+      rest[random] = swap
+    }
+    this.order = first === null ? rest : [first, ...rest]
   }
 
   /**
@@ -150,7 +223,7 @@ export class QueueController {
 
     this.advancing = true
     try {
-      await this.next()
+      await this.next(true)
     } catch {
       this.activeIndex = null
     } finally {

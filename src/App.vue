@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { AppConfig, CommandType, PlayTarget, SpeakerInput } from '@shared/types'
-import { clearPreset, fetchConfig, listPresets, savePreset } from '@/api'
+import type { AppConfig, CommandType, PlayTarget, RepeatMode, SpeakerInput } from '@shared/types'
+import { clearPreset, fetchConfig, fetchQueue, listPresets, savePreset, setQueueMode } from '@/api'
 import { prettyModel } from '@/format'
 import { useSpeaker } from '@/composables/useSpeaker'
 import AppIcon from '@/components/AppIcon.vue'
@@ -10,6 +10,7 @@ import BrowsePanel from '@/components/BrowsePanel.vue'
 import DevicePanel from '@/components/DevicePanel.vue'
 import InputControl from '@/components/InputControl.vue'
 import PresetBar from '@/components/PresetBar.vue'
+import QueueModes from '@/components/QueueModes.vue'
 import SleepControl from '@/components/SleepControl.vue'
 import TrackInfo from '@/components/TrackInfo.vue'
 import TransportControls from '@/components/TransportControls.vue'
@@ -24,11 +25,17 @@ const browseOpen = ref(false)
 const browseButton = ref<HTMLButtonElement | null>(null)
 const presets = ref<(PlayTarget | null)[]>(Array.from({ length: 6 }, () => null))
 const presetError = ref<string | null>(null)
+const queueMode = ref<{ repeat: RepeatMode; shuffle: boolean }>({ repeat: 'off', shuffle: false })
+const modeError = ref<string | null>(null)
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   config.value = await fetchConfig().catch(() => config.value)
   presets.value = await listPresets().catch(() => presets.value)
+  const queue = await fetchQueue().catch(() => null)
+  if (queue) {
+    queueMode.value = { repeat: queue.repeat, shuffle: queue.shuffle }
+  }
 })
 
 const currentTarget = computed<PlayTarget | null>(() => {
@@ -82,6 +89,24 @@ function onMute(muted: boolean): void {
 
 function onInput(mode: SpeakerInput): void {
   void run({ type: 'input', value: mode })
+}
+
+async function setMode(patch: { repeat?: RepeatMode; shuffle?: boolean }): Promise<void> {
+  modeError.value = null
+  try {
+    const queue = await setQueueMode(patch)
+    queueMode.value = { repeat: queue.repeat, shuffle: queue.shuffle }
+  } catch (error) {
+    modeError.value = error instanceof Error ? error.message : 'The playback mode could not be changed'
+  }
+}
+
+function onRepeat(mode: RepeatMode): void {
+  void setMode({ repeat: mode })
+}
+
+function onShuffle(enabled: boolean): void {
+  void setMode({ shuffle: enabled })
 }
 
 function onPresetPlay(target: PlayTarget): void {
@@ -243,6 +268,14 @@ function onKeydown(event: KeyboardEvent): void {
           @command="onCommand"
         />
 
+        <QueueModes
+          :repeat="queueMode.repeat"
+          :shuffle="queueMode.shuffle"
+          :busy="busy"
+          @repeat="onRepeat"
+          @shuffle="onShuffle"
+        />
+
         <VolumeControl :level="state.volume.level" :muted="state.volume.muted" :busy="busy" @volume="onVolume" @mute="onMute" />
 
         <InputControl :current="state.input" :busy="busy" @input="onInput" />
@@ -259,6 +292,7 @@ function onKeydown(event: KeyboardEvent): void {
         />
 
         <p v-if="presetError" class="error" role="alert">{{ presetError }}</p>
+        <p v-if="modeError" class="error" role="alert">{{ modeError }}</p>
         <p v-if="commandError" class="error" role="alert">{{ commandError }}</p>
       </section>
     </main>

@@ -180,6 +180,7 @@ Station search uses [radio-browser.info](https://www.radio-browser.info/), a fre
 | `POST` | `/api/queue/play` | Play `{ index }` |
 | `POST` | `/api/queue/next` | Move forward in the queue |
 | `POST` | `/api/queue/previous` | Move back in the queue |
+| `PUT` | `/api/queue/mode` | Set `{ repeat, shuffle }` |
 | `GET` | `/api/config` | Read the configuration |
 | `PUT` | `/api/config` | Update the speaker address, libraries or media URL |
 | `GET` | `/api/discovery` | SSDP search |

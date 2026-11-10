@@ -159,9 +159,13 @@ export interface QueueItem extends PlayTarget {
   id: string
 }
 
+export type RepeatMode = 'off' | 'all' | 'one'
+
 export interface QueueSnapshot {
   items: QueueItem[]
   activeIndex: number | null
+  repeat: RepeatMode
+  shuffle: boolean
 }
 
 export interface PlaylistItem extends PlayTarget {

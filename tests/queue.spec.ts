@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { emptySpeakerState, type PlayTarget, type PlaybackState, type SpeakerState } from '../shared/types.ts'
 import { QueueController } from '../server/queue.ts'
 
@@ -9,6 +9,8 @@ const FIRST: PlayTarget = {
 }
 
 const SECOND: PlayTarget = { ...FIRST, title: 'Second', url: 'http://192.168.1.135:5173/api/library/file?path=b.mp3' }
+const THIRD: PlayTarget = { ...FIRST, title: 'Third', url: 'http://192.168.1.135:5173/api/library/file?path=c.mp3' }
+const FOURTH: PlayTarget = { ...FIRST, title: 'Fourth', url: 'http://192.168.1.135:5173/api/library/file?path=d.mp3' }
 const LIVE: PlayTarget = { url: 'http://example.com/live.aac', title: 'Live', isLive: true }
 
 function player() {
@@ -105,6 +107,72 @@ describe('QueueController', () => {
     expect(played.at(-1)?.title).toBe('Second')
   })
 
+  it('reports repeat and shuffle, and keeps them across a replace', async () => {
+    const { queue } = player()
+
+    expect(queue.snapshot()).toMatchObject({ repeat: 'off', shuffle: false })
+    expect(queue.setMode({ repeat: 'all', shuffle: true })).toMatchObject({ repeat: 'all', shuffle: true })
+
+    const snapshot = await queue.replace([FIRST, SECOND])
+
+    expect(snapshot).toMatchObject({ repeat: 'all', shuffle: true })
+  })
+
+  it('wraps to the first track when repeat is all', async () => {
+    const { queue, played } = player()
+    await queue.replace([FIRST, SECOND])
+    queue.setMode({ repeat: 'all' })
+
+    await queue.next()
+    await queue.next()
+
+    expect(queue.snapshot().activeIndex).toBe(0)
+    expect(played.at(-1)?.title).toBe('First')
+  })
+
+  it('repeats the current track only on automatic advance', async () => {
+    const { queue, played } = player()
+    await queue.replace([FIRST, SECOND])
+    queue.setMode({ repeat: 'one' })
+
+    await queue.next(true)
+    expect(queue.snapshot().activeIndex).toBe(0)
+    expect(played.at(-1)?.title).toBe('First')
+
+    await queue.next()
+    expect(queue.snapshot().activeIndex).toBe(1)
+    expect(played.at(-1)?.title).toBe('Second')
+  })
+
+  it('plays every track once in shuffle order', async () => {
+    const { queue } = player()
+    await queue.replace([FIRST, SECOND, THIRD, FOURTH], 0)
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    queue.setMode({ shuffle: true })
+    const visited = [queue.snapshot().activeIndex]
+    for (let step = 0; step < 3; step += 1) {
+      await queue.next()
+      visited.push(queue.snapshot().activeIndex)
+    }
+    random.mockRestore()
+
+    expect(visited[0]).toBe(0)
+    expect(new Set(visited).size).toBe(4)
+  })
+
+  it('restarts the first track on previous, and wraps with repeat all', async () => {
+    const { queue, played } = player()
+    await queue.replace([FIRST, SECOND])
+
+    await queue.previous()
+    expect(played.at(-1)?.title).toBe('First')
+
+    queue.setMode({ repeat: 'all' })
+    await queue.previous()
+    expect(played.at(-1)?.title).toBe('Second')
+  })
+
   it('does not handle next when nothing is active', async () => {
     const { queue } = player()
     queue.add(FIRST)
@@ -124,7 +192,7 @@ describe('QueueController', () => {
     expect(queue.snapshot().activeIndex).toBe(0)
 
     queue.clear()
-    expect(queue.snapshot()).toEqual({ items: [], activeIndex: null })
+    expect(queue.snapshot()).toEqual({ items: [], activeIndex: null, repeat: 'off', shuffle: false })
   })
 
   it('advances once when a finite track ends', async () => {

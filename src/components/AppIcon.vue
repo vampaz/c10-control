@@ -14,6 +14,9 @@ export type IconName =
   | 'star'
   | 'starFilled'
   | 'plus'
+  | 'shuffle'
+  | 'repeat'
+  | 'repeatOne'
 
 withDefaults(defineProps<{ name: IconName; size?: number }>(), { size: 22 })
 
@@ -35,6 +38,9 @@ const PATHS: Record<IconName, string> = {
   star: 'M12 4.6l2.3 4.66 5.15.75-3.73 3.63.88 5.12L12 16.34l-4.6 2.42.88-5.12-3.73-3.63 5.15-.75z',
   starFilled: 'M12 3.8l2.55 5.17 5.7.83-4.13 4.02.98 5.68L12 16.82l-5.1 2.68.98-5.68L3.75 9.8l5.7-.83z',
   plus: 'M12 5v14M5 12h14',
+  shuffle: 'M4 7h3.4l9.2 10H20M4 17h3.4l3-3.3M14.6 10.3l1.9-3.3H20M17 4.2 20 6.8l-3 2.6M17 14.4 20 17l-3 2.6',
+  repeat: 'M4 9V8a3 3 0 0 1 3-3h10M14 2.5 17 5l-3 2.5M20 15v1a3 3 0 0 1-3 3H7M10 21.5 7 19l3-2.5',
+  repeatOne: 'M4 9V8a3 3 0 0 1 3-3h10M14 2.5 17 5l-3 2.5M20 15v1a3 3 0 0 1-3 3H7M10 21.5 7 19l3-2.5M11.3 10.8 12.6 10v4.6',
 }
 </script>
 

@@ -1,4 +1,4 @@
-import type { AppConfig, CommandRequest, DiscoveredDevice, Favorite, FolderListing, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, SleepStatus, SpeakerState } from '@shared/types'
+import type { AppConfig, CommandRequest, DiscoveredDevice, Favorite, FolderListing, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, RepeatMode, SleepStatus, SpeakerState } from '@shared/types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -134,6 +134,13 @@ export function cancelSleep(): Promise<SleepStatus> {
 
 export function fetchQueue(): Promise<QueueSnapshot> {
   return request<QueueSnapshot>('/api/queue')
+}
+
+export function setQueueMode(patch: { repeat?: RepeatMode; shuffle?: boolean }): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/queue/mode', {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  })
 }
 
 export function addToQueue(target: PlayTarget): Promise<QueueSnapshot> {
