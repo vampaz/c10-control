@@ -170,6 +170,12 @@ body.drawer-open {
   flex: none;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -252,12 +258,29 @@ body.drawer-open {
   }
 }
 
-/* The browse drawer is docked on the right, so reserve its width on wide
-   screens instead of covering the controls. */
-@media (min-width: 1280px) {
-  .app.browse-open {
-    width: min(1120px, calc(100% - 480px));
-    margin-inline: auto 480px;
+/* The browse drawer is docked on the right. Reserve its width so it never
+   covers the player, and let the remaining column shrink and scroll. */
+@media (min-width: 1000px) {
+  :root {
+    --browse-width: min(480px, 46vw);
+  }
+
+  .app.browse-open,
+  .app.settings-open {
+    width: auto;
+    height: 100svh;
+    margin-inline: 0 var(--browse-width);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* Up next is hidden while a side panel is open, so keep the console as one
+     column instead of an empty two-column grid. */
+  .app.browse-open .console,
+  .app.settings-open .console {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
   }
 }
 
@@ -324,29 +347,10 @@ body.drawer-open {
   background: var(--hover);
 }
 
-.browse-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 42px;
-  padding: 0 16px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-dim);
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
-}
-
-.browse-button:hover {
-  color: var(--ink);
-  border-color: var(--line-strong);
+.icon-button[aria-expanded='true'] {
+  color: var(--accent);
+  border-color: var(--accent-line);
   background: var(--hover);
-}
-
-.browse-button:active {
-  transform: scale(0.98);
 }
 
 .icon-button:active:not(:disabled) {

@@ -103,7 +103,6 @@ const favoriteUrls = computed(() => new Set(favorites.value.map((entry) => entry
 
 onMounted(async () => {
   drawer.value?.focus()
-  document.body.classList.add('drawer-open')
   try {
     favorites.value = await listFavorites()
   } catch (cause) {
@@ -131,7 +130,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  document.body.classList.remove('drawer-open')
   unsubscribeState?.()
   if (searchTimer) {
     clearTimeout(searchTimer)
@@ -968,7 +966,7 @@ function meta(station: RadioStation): string {
   z-index: 10;
   display: flex;
   flex-direction: column;
-  width: min(480px, 100%);
+  width: 100%;
   height: 100%;
   /* Standalone phones draw under the status bar and home bar. */
   padding-top: env(safe-area-inset-top);
@@ -980,6 +978,12 @@ function meta(station: RadioStation): string {
   box-shadow: -40px 0 80px -40px var(--shadow);
   animation: slide-in 220ms ease-out;
   overscroll-behavior: contain;
+}
+
+@media (min-width: 1000px) {
+  .drawer {
+    width: var(--browse-width, 480px);
+  }
 }
 
 @keyframes slide-in {

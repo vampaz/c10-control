@@ -185,195 +185,204 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <div class="overlay" @click.self="emit('close')">
-    <section ref="dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-      <header class="dialog-head">
-        <h2 id="settings-title">Speaker</h2>
-        <button type="button" class="icon-button" aria-label="Close settings" @click="emit('close')">
-          <AppIcon name="close" :size="18" />
-        </button>
-      </header>
+  <section id="settings-panel" ref="dialog" class="dialog" role="dialog" aria-labelledby="settings-title">
+    <header class="dialog-head">
+      <h2 id="settings-title">Speaker</h2>
+      <button type="button" class="icon-button" aria-label="Close settings" @click="emit('close')">
+        <AppIcon name="close" :size="18" />
+      </button>
+    </header>
 
-      <label class="field">
-        <span class="field-label">Address</span>
-        <input
-          ref="hostInput"
-          v-model="host"
-          type="text"
-          inputmode="text"
-          autocomplete="off"
-          autocapitalize="none"
-          spellcheck="false"
-          placeholder="192.168.1.100"
-          :disabled="config.pinnedHost"
-        />
-      </label>
-      <p class="hint">IP address or host name.</p>
-      <p v-if="config.pinnedHost" class="hint">
-        Fixed by <code>C10_HOST</code> in the environment. Change it there and restart.
-      </p>
+    <label class="field">
+      <span class="field-label">Address</span>
+      <input
+        ref="hostInput"
+        v-model="host"
+        type="text"
+        inputmode="text"
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+        placeholder="192.168.1.100"
+        :disabled="config.pinnedHost"
+      />
+    </label>
+    <p class="hint">IP address or host name.</p>
+    <p v-if="config.pinnedHost" class="hint">
+      Fixed by <code>C10_HOST</code> in the environment. Change it there and restart.
+    </p>
 
-      <section class="setting-group">
-        <InputControl :current="input" :busy="busy" @input="emit('input', $event)" />
-        <p class="hint">Switching input stops the current stream.</p>
-      </section>
-
-      <div class="field">
-        <span class="field-label">Music folders</span>
-        <ul v-if="libraries.length" class="libraries">
-          <li v-for="(library, index) in libraries" :key="`${library.path}-${index}`">
-            <span class="library-text">
-              <strong>{{ library.name || library.path }}</strong>
-              <small>{{ library.path }}</small>
-            </span>
-            <button
-              type="button"
-              class="icon-button"
-              :aria-label="`Remove ${library.name || library.path}`"
-              @click="removeLibrary(index)"
-            >
-              <AppIcon name="close" :size="14" />
-            </button>
-          </li>
-        </ul>
-        <div class="library-add">
-          <input v-model="newName" type="text" placeholder="Name (optional)" autocomplete="off" />
-          <input
-            ref="newPathInput"
-            v-model="newPath"
-            type="text"
-            placeholder="/path/to/music"
-            autocomplete="off"
-            spellcheck="false"
-            @input="libraryError = null"
-            @keydown.enter="addLibrary"
-          />
-          <button type="button" class="ghost" @click="addLibrary">Add</button>
-        </div>
-        <p v-if="libraryError" class="library-error" role="alert">{{ libraryError }}</p>
-
-        <div v-if="config.browseRoots.length" class="library-browse">
-          <button type="button" class="text-button" :disabled="folderLoading" @click="openBrowser">
-            {{ folderLoading && !folderListing ? 'Opening…' : 'Browse folders' }}
-          </button>
-
-          <p v-if="folderError" class="library-error" role="alert">{{ folderError }}</p>
-
-          <div v-if="folderListing" class="folder-browser">
-            <header class="folder-head">
-              <button type="button" class="text-button" :disabled="!folderListing.parent" @click="navigateFolder(folderListing.parent ?? '')">
-                Up
-              </button>
-              <span class="folder-path" :title="folderListing.path">{{ folderListing.path }}</span>
-              <button type="button" class="text-button" @click="closeBrowser">Close</button>
-            </header>
-
-            <ul v-if="folderListing.folders.length" class="folder-list">
-              <li v-for="folder in folderListing.folders" :key="folder.path">
-                <button type="button" class="folder-row" @click="navigateFolder(folder.path)">
-                  {{ folder.name }}
-                </button>
-              </li>
-            </ul>
-            <p v-else class="hint">No subfolders here.</p>
-
-            <button type="button" class="primary" @click="chooseFolder">Use this folder</button>
-          </div>
-        </div>
-      </div>
-      <p class="hint">Each folder becomes a library in Browse → Library. Use Browse folders for a mounted parent, or type a path the server can read.</p>
-
-      <label class="field">
-        <span class="field-label">Media URL</span>
-        <input
-          v-model="mediaBaseUrl"
-          type="url"
-          autocomplete="off"
-          spellcheck="false"
-          placeholder="http://192.168.1.135:5173"
-        />
-      </label>
-      <p class="hint">The address the speaker uses to fetch local files. Leave empty to detect it.</p>
-
-      <div v-if="!config.pinnedHost" class="search">
-        <button type="button" class="text-button" :disabled="searching" @click="search">
-          {{ searching ? 'Searching…' : 'Find speakers on this network' }}
-        </button>
-        <ul v-if="devices.length" class="results">
-          <li v-for="found in devices" :key="found.location">
-            <button type="button" class="result" @click="choose(found)">
-              <span class="result-name">{{ found.name }}</span>
-              <span class="result-host">{{ found.host }}</span>
-            </button>
-          </li>
-        </ul>
-        <p v-else-if="searched && !searching" class="hint">No speakers answered. Enter the address by hand.</p>
-      </div>
-
-      <label class="field">
-        <span class="field-label">Speaker name</span>
-        <div class="rename-row">
-          <input
-            v-model="renameValue"
-            type="text"
-            maxlength="40"
-            autocomplete="off"
-            aria-label="Speaker name"
-            @keydown.enter="rename"
-          />
-          <button type="button" class="ghost" :disabled="renaming || !renameValue.trim()" @click="rename">
-            {{ renaming ? 'Renaming…' : 'Rename' }}
-          </button>
-        </div>
-      </label>
-      <p v-if="renameError || detailError" class="error" role="alert">{{ renameError ?? detailError }}</p>
-
-      <dl v-if="device" class="facts">
-        <div><dt>Model</dt><dd>{{ prettyModel(device.model) }}</dd></div>
-        <div><dt>Firmware</dt><dd>{{ device.firmware }}</dd></div>
-        <div v-if="details"><dt>Signal</dt><dd>{{ details.rssi !== null ? `${details.rssi} dBm` : '—' }}</dd></div>
-        <div v-if="details"><dt>Wi-Fi channel</dt><dd>{{ details.wifiChannel ?? '—' }}</dd></div>
-        <div v-if="details"><dt>Internet</dt><dd>{{ details.internet === null ? '—' : details.internet ? 'Online' : 'Offline' }}</dd></div>
-        <div v-if="details"><dt>Update</dt><dd>{{ details.versionUpdate === null ? '—' : details.versionUpdate ? 'Available' : 'Up to date' }}</dd></div>
-        <div><dt>UUID</dt><dd class="mono">{{ device.uuid || '—' }}</dd></div>
-      </dl>
-
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
-
-      <footer class="dialog-foot">
-        <button type="button" class="ghost" @click="emit('close')">Cancel</button>
-        <button type="button" class="primary" :disabled="saving" @click="save">
-          {{ saving ? 'Saving…' : 'Save' }}
-        </button>
-      </footer>
+    <section class="setting-group">
+      <InputControl :current="input" :busy="busy" @input="emit('input', $event)" />
+      <p class="hint">Switching input stops the current stream.</p>
     </section>
-  </div>
+
+    <div class="field">
+      <span class="field-label">Music folders</span>
+      <ul v-if="libraries.length" class="libraries">
+        <li v-for="(library, index) in libraries" :key="`${library.path}-${index}`">
+          <span class="library-text">
+            <strong>{{ library.name || library.path }}</strong>
+            <small>{{ library.path }}</small>
+          </span>
+          <button
+            type="button"
+            class="icon-button"
+            :aria-label="`Remove ${library.name || library.path}`"
+            @click="removeLibrary(index)"
+          >
+            <AppIcon name="close" :size="14" />
+          </button>
+        </li>
+      </ul>
+      <div class="library-add">
+        <input v-model="newName" type="text" placeholder="Name (optional)" autocomplete="off" />
+        <input
+          ref="newPathInput"
+          v-model="newPath"
+          type="text"
+          placeholder="/path/to/music"
+          autocomplete="off"
+          spellcheck="false"
+          @input="libraryError = null"
+          @keydown.enter="addLibrary"
+        />
+        <button type="button" class="ghost" @click="addLibrary">Add</button>
+      </div>
+      <p v-if="libraryError" class="library-error" role="alert">{{ libraryError }}</p>
+
+      <div v-if="config.browseRoots.length" class="library-browse">
+        <button type="button" class="text-button" :disabled="folderLoading" @click="openBrowser">
+          {{ folderLoading && !folderListing ? 'Opening…' : 'Browse folders' }}
+        </button>
+
+        <p v-if="folderError" class="library-error" role="alert">{{ folderError }}</p>
+
+        <div v-if="folderListing" class="folder-browser">
+          <header class="folder-head">
+            <button type="button" class="text-button" :disabled="!folderListing.parent" @click="navigateFolder(folderListing.parent ?? '')">
+              Up
+            </button>
+            <span class="folder-path" :title="folderListing.path">{{ folderListing.path }}</span>
+            <button type="button" class="text-button" @click="closeBrowser">Close</button>
+          </header>
+
+          <ul v-if="folderListing.folders.length" class="folder-list">
+            <li v-for="folder in folderListing.folders" :key="folder.path">
+              <button type="button" class="folder-row" @click="navigateFolder(folder.path)">
+                {{ folder.name }}
+              </button>
+            </li>
+          </ul>
+          <p v-else class="hint">No subfolders here.</p>
+
+          <button type="button" class="primary" @click="chooseFolder">Use this folder</button>
+        </div>
+      </div>
+    </div>
+    <p class="hint">Each folder becomes a library in Browse → Library. Use Browse folders for a mounted parent, or type a path the server can read.</p>
+
+    <label class="field">
+      <span class="field-label">Media URL</span>
+      <input
+        v-model="mediaBaseUrl"
+        type="url"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="http://192.168.1.135:5173"
+      />
+    </label>
+    <p class="hint">The address the speaker uses to fetch local files. Leave empty to detect it.</p>
+
+    <div v-if="!config.pinnedHost" class="search">
+      <button type="button" class="text-button" :disabled="searching" @click="search">
+        {{ searching ? 'Searching…' : 'Find speakers on this network' }}
+      </button>
+      <ul v-if="devices.length" class="results">
+        <li v-for="found in devices" :key="found.location">
+          <button type="button" class="result" @click="choose(found)">
+            <span class="result-name">{{ found.name }}</span>
+            <span class="result-host">{{ found.host }}</span>
+          </button>
+        </li>
+      </ul>
+      <p v-else-if="searched && !searching" class="hint">No speakers answered. Enter the address by hand.</p>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Speaker name</span>
+      <div class="rename-row">
+        <input
+          v-model="renameValue"
+          type="text"
+          maxlength="40"
+          autocomplete="off"
+          aria-label="Speaker name"
+          @keydown.enter="rename"
+        />
+        <button type="button" class="ghost" :disabled="renaming || !renameValue.trim()" @click="rename">
+          {{ renaming ? 'Renaming…' : 'Rename' }}
+        </button>
+      </div>
+    </label>
+    <p v-if="renameError || detailError" class="error" role="alert">{{ renameError ?? detailError }}</p>
+
+    <dl v-if="device" class="facts">
+      <div><dt>Model</dt><dd>{{ prettyModel(device.model) }}</dd></div>
+      <div><dt>Firmware</dt><dd>{{ device.firmware }}</dd></div>
+      <div v-if="details"><dt>Signal</dt><dd>{{ details.rssi !== null ? `${details.rssi} dBm` : '—' }}</dd></div>
+      <div v-if="details"><dt>Wi-Fi channel</dt><dd>{{ details.wifiChannel ?? '—' }}</dd></div>
+      <div v-if="details"><dt>Internet</dt><dd>{{ details.internet === null ? '—' : details.internet ? 'Online' : 'Offline' }}</dd></div>
+      <div v-if="details"><dt>Update</dt><dd>{{ details.versionUpdate === null ? '—' : details.versionUpdate ? 'Available' : 'Up to date' }}</dd></div>
+      <div><dt>UUID</dt><dd class="mono">{{ device.uuid || '—' }}</dd></div>
+    </dl>
+
+    <p v-if="error" class="error" role="alert">{{ error }}</p>
+
+    <footer class="dialog-foot">
+      <button type="button" class="ghost" @click="emit('close')">Cancel</button>
+      <button type="button" class="primary" :disabled="saving" @click="save">
+        {{ saving ? 'Saving…' : 'Save' }}
+      </button>
+    </footer>
+  </section>
 </template>
 
 <style scoped>
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
-  background: var(--overlay-strong);
-  backdrop-filter: blur(8px);
-}
-
 .dialog {
-  width: min(440px, 100%);
-  max-height: min(90vh, 88svh);
+  position: fixed;
+  inset-block: 0;
+  right: 0;
+  z-index: 10;
   display: grid;
+  align-content: start;
   gap: 18px;
+  width: 100%;
+  height: 100%;
   padding: 22px;
+  padding-top: max(22px, env(safe-area-inset-top));
+  padding-bottom: max(22px, env(safe-area-inset-bottom));
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: 20px;
-  border: 1px solid var(--line);
-  background: var(--surface-deep);
-  box-shadow: 0 40px 80px -40px var(--shadow);
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: -40px 0 80px -40px var(--shadow);
+  animation: slide-in 220ms ease-out;
+}
+
+@media (min-width: 1000px) {
+  .dialog {
+    width: var(--browse-width, 480px);
+  }
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(16px);
+  }
+  to {
+    transform: none;
+  }
 }
 
 .dialog-head {
@@ -386,7 +395,7 @@ async function save(): Promise<void> {
   margin: -22px -22px 0;
   padding: 22px 22px 12px;
   border-bottom: 1px solid var(--line);
-  background: var(--surface-deep);
+  background: var(--surface);
 }
 
 .dialog-head h2 {

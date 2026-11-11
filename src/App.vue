@@ -88,8 +88,15 @@ const currentTarget = computed<PlayTarget | null>(() => {
   }
 })
 
+watch(
+  () => browseOpen.value || settingsOpen.value,
+  (open) => document.body.classList.toggle('drawer-open', open),
+  { immediate: true },
+)
+
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
+  document.body.classList.remove('drawer-open')
 })
 
 const statusLabel = computed(() => {
@@ -190,7 +197,16 @@ function onSaved(next: AppConfig): void {
 }
 
 function openSettings(): void {
+  browseOpen.value = false
   settingsOpen.value = true
+}
+
+function toggleSettings(): void {
+  if (settingsOpen.value) {
+    closeSettings()
+    return
+  }
+  openSettings()
 }
 
 function closeSettings(): void {
@@ -203,6 +219,7 @@ function toggleBrowse(): void {
     closeBrowse()
     return
   }
+  settingsOpen.value = false
   browseOpen.value = true
 }
 
@@ -263,7 +280,7 @@ function onKeydown(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="app" :class="{ 'is-playing': playing, 'browse-open': browseOpen }">
+  <div class="app" :class="{ 'is-playing': playing, 'browse-open': browseOpen, 'settings-open': settingsOpen }">
     <div class="ambient" aria-hidden="true">
       <div :key="ambientKey" class="ambient-image" :style="ambientStyle" />
     </div>
@@ -282,26 +299,30 @@ function onKeydown(event: KeyboardEvent): void {
           <i class="dot" aria-hidden="true" />
           {{ statusLabel }}
         </span>
-        <button
-          ref="browseButton"
-          type="button"
-          class="browse-button"
-          :aria-expanded="browseOpen"
-          aria-controls="browse-panel"
-          @click="toggleBrowse"
-        >
-          <AppIcon name="browse" :size="16" />
-          Browse
-        </button>
-        <button
-          ref="settingsButton"
-          type="button"
-          class="icon-button"
-          aria-label="Speaker settings"
-          @click="openSettings"
-        >
-          <AppIcon name="settings" :size="19" />
-        </button>
+        <div class="topbar-actions">
+          <button
+            ref="settingsButton"
+            type="button"
+            class="icon-button"
+            :aria-expanded="settingsOpen"
+            aria-controls="settings-panel"
+            aria-label="Speaker settings"
+            @click="toggleSettings"
+          >
+            <AppIcon name="settings" :size="19" />
+          </button>
+          <button
+            ref="browseButton"
+            type="button"
+            class="icon-button panel-toggle"
+            :aria-expanded="browseOpen"
+            aria-controls="browse-panel"
+            aria-label="Toggle browse panel"
+            @click="toggleBrowse"
+          >
+            <AppIcon name="browse" :size="18" />
+          </button>
+        </div>
       </div>
     </header>
 
@@ -357,7 +378,7 @@ function onKeydown(event: KeyboardEvent): void {
       </div>
 
       <UpNext
-        v-if="!browseOpen"
+        v-if="!browseOpen && !settingsOpen"
         :items="queue.items"
         :active-index="queue.activeIndex"
         :order="queue.order"
