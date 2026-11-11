@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import type { AppConfig, CommandType, PlayTarget, QueueSnapshot, RepeatMode, SpeakerInput } from '@shared/types'
 import { clearPreset, fetchConfig, fetchQueue, listPresets, playQueue, savePreset, setQueueMode } from '@/api'
 import { prettyModel } from '@/format'
 import { useSpeaker } from '@/composables/useSpeaker'
 import AppIcon from '@/components/AppIcon.vue'
 import ArtworkTile from '@/components/ArtworkTile.vue'
-import BrowsePanel from '@/components/BrowsePanel.vue'
-import DevicePanel from '@/components/DevicePanel.vue'
 import PresetBar from '@/components/PresetBar.vue'
 import QueueModes from '@/components/QueueModes.vue'
 import SleepControl from '@/components/SleepControl.vue'
@@ -15,6 +13,10 @@ import TrackInfo from '@/components/TrackInfo.vue'
 import TransportControls from '@/components/TransportControls.vue'
 import UpNext from '@/components/UpNext.vue'
 import VolumeControl from '@/components/VolumeControl.vue'
+
+// v-if mounted panels: load them only when opened (no loading UI, render nothing meanwhile).
+const BrowsePanel = defineAsyncComponent(() => import('@/components/BrowsePanel.vue'))
+const DevicePanel = defineAsyncComponent(() => import('@/components/DevicePanel.vue'))
 
 const { state, stream, busy, commandError, online, playing, run, play } = useSpeaker()
 

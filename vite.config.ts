@@ -16,5 +16,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // One vendor chunk: keeps the Vue runtime out of the app entry.
+        manualChunks(id) {
+          if (id.includes('node_modules/vue/') || id.includes('node_modules/@vue/')) {
+            return 'vendor'
+          }
+          return null
+        },
+      },
+    },
   },
 })

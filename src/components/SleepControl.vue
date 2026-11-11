@@ -18,6 +18,7 @@ const remaining = computed(() => Math.max(0, (endsAt.value ?? 0) - now.value))
 const remainingLabel = computed(() => formatTime(Math.ceil(remaining.value / 1000)))
 
 onMounted(async () => {
+  document.addEventListener('visibilitychange', onVisibilityChange)
   try {
     const status = await getSleep()
     apply(status.endsAt)
@@ -26,7 +27,10 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(stopTicker)
+onBeforeUnmount(() => {
+  stopTicker()
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
 
 function apply(next: number | null): void {
   endsAt.value = next
@@ -55,6 +59,23 @@ function stopTicker(): void {
     clearInterval(ticker)
     ticker = null
   }
+}
+
+function onVisibilityChange(): void {
+  if (document.hidden) {
+    stopTicker()
+    return
+  }
+  if (mode.value !== 'active') {
+    return
+  }
+  // The interval was paused while hidden: recompute from the stored deadline.
+  now.value = Date.now()
+  if (remaining.value <= 0) {
+    apply(null)
+    return
+  }
+  startTicker()
 }
 
 function openMenu(): void {

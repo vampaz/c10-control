@@ -58,6 +58,7 @@ const stationsDone = ref(false)
 const speakerNote = ref<string | null>(null)
 const scrollArea = ref<HTMLElement | null>(null)
 const STATION_PAGE = 20
+const STATION_LIST_MAX = 200
 let stationsGeneration = 0
 let stationsOffset = 0
 const library = shallowRef<LibraryListing>({
@@ -97,6 +98,8 @@ const playingUrl = ref('')
 const libraryLibraries = computed(() => albums.value.libraries.length
   ? albums.value.libraries
   : library.value.libraries)
+
+const favoriteUrls = computed(() => new Set(favorites.value.map((entry) => entry.url)))
 
 onMounted(async () => {
   drawer.value?.focus()
@@ -476,8 +479,10 @@ async function loadTopStations(reset = false): Promise<void> {
     stationsOffset = offset + STATION_PAGE
     const seen = new Set(topStations.value.map((station) => station.id))
     const additions = page.filter((station) => !seen.has(station.id))
-    topStations.value = reset ? page : [...topStations.value, ...additions]
-    stationsDone.value = page.length === 0
+    const next = reset ? page : [...topStations.value, ...additions]
+    // Cap the accumulated list: clamp at STATION_LIST_MAX and stop paging further.
+    topStations.value = next.length > STATION_LIST_MAX ? next.slice(0, STATION_LIST_MAX) : next
+    stationsDone.value = page.length === 0 || topStations.value.length >= STATION_LIST_MAX
   } catch (cause) {
     if (generation === stationsGeneration) {
       stationsError.value = message(cause)
@@ -760,11 +765,11 @@ function meta(station: RadioStation): string {
               <button
                 type="button"
                 class="star"
-                :aria-pressed="favoriteFor(station.url) !== undefined"
-                :aria-label="`${favoriteFor(station.url) ? 'Remove' : 'Add'} ${station.name} ${favoriteFor(station.url) ? 'from' : 'to'} favorites`"
+                :aria-pressed="favoriteUrls.has(station.url)"
+                :aria-label="`${favoriteUrls.has(station.url) ? 'Remove' : 'Add'} ${station.name} ${favoriteUrls.has(station.url) ? 'from' : 'to'} favorites`"
                 @click="toggleFavorite(station)"
               >
-                <AppIcon :name="favoriteFor(station.url) ? 'starFilled' : 'star'" :size="17" />
+                <AppIcon :name="favoriteUrls.has(station.url) ? 'starFilled' : 'star'" :size="17" />
               </button>
             </li>
           </ul>
@@ -795,11 +800,11 @@ function meta(station: RadioStation): string {
               <button
                 type="button"
                 class="star"
-                :aria-pressed="favoriteFor(station.url) !== undefined"
-                :aria-label="`${favoriteFor(station.url) ? 'Remove' : 'Add'} ${station.name} ${favoriteFor(station.url) ? 'from' : 'to'} favorites`"
+                :aria-pressed="favoriteUrls.has(station.url)"
+                :aria-label="`${favoriteUrls.has(station.url) ? 'Remove' : 'Add'} ${station.name} ${favoriteUrls.has(station.url) ? 'from' : 'to'} favorites`"
                 @click="toggleFavorite(station)"
               >
-                <AppIcon :name="favoriteFor(station.url) ? 'starFilled' : 'star'" :size="17" />
+                <AppIcon :name="favoriteUrls.has(station.url) ? 'starFilled' : 'star'" :size="17" />
               </button>
             </li>
           </ul>

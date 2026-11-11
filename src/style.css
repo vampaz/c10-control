@@ -238,7 +238,7 @@ body.drawer-open {
   inset: -25%;
   background-position: center;
   background-size: cover;
-  filter: blur(90px) saturate(1.35);
+  filter: blur(48px) saturate(1.35);
   opacity: 0.24;
   animation: ambient-in 900ms ease;
 }
