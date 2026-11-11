@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/vampaz/c10-control/actions/workflows/ci.yml/badge.svg)](https://github.com/vampaz/c10-control/actions/workflows/ci.yml)
 
-A self-hosted web remote for the **Audio Pro C10** (Linkplay A28) speaker. It runs on a machine on your local network and replaces the vendor app for everyday playback.
+A self-hosted web remote for the [**Audio Pro C10**](https://us.audiopro.com/products/c10-mkii-w-classic) (Linkplay A28) speaker. It runs on a machine on your local network and replaces the vendor app for everyday playback.
 
 ## What it does
 
