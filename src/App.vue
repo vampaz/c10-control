@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import type { AppConfig, CommandType, PlayTarget, QueueSnapshot, RepeatMode, SpeakerInput } from '@shared/types'
 import { clearPreset, fetchConfig, fetchQueue, listPresets, playQueue, savePreset, setQueueMode } from '@/api'
 import { prettyModel } from '@/format'
@@ -33,10 +33,17 @@ const presets = ref<(PlayTarget | null)[]>(Array.from({ length: 6 }, () => null)
 const presetError = ref<string | null>(null)
 const queueMode = ref<{ repeat: RepeatMode; shuffle: boolean }>({ repeat: 'off', shuffle: false })
 const modeError = ref<string | null>(null)
-const queue = ref<QueueSnapshot>({ items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] })
+const queue = shallowRef<QueueSnapshot>({ items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] })
+
+let queueController: AbortController | null = null
 
 async function refreshQueue(): Promise<void> {
-  const next = await fetchQueue().catch(() => null)
+  queueController?.abort()
+  const controller = new AbortController()
+  queueController = controller
+  const next = await fetchQueue(controller.signal)
+    .then((snapshot) => (queueController === controller ? snapshot : null))
+    .catch(() => null)
   if (next) {
     queue.value = next
     queueMode.value = { repeat: next.repeat, shuffle: next.shuffle }

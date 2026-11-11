@@ -30,7 +30,25 @@ export function useSpeaker() {
   const online = computed(() => state.value.connected)
   const playing = computed(() => state.value.playback.status === 'playing')
 
+  let lastRapidCommandAt = 0
+  const RAPID_COMMAND_INTERVAL_MS = 100
+
+  function isRapidCommand(command: CommandRequest): boolean {
+    return command.type === 'volume' || command.type === 'seek'
+  }
+
   async function run(command: CommandRequest): Promise<void> {
+    if (isRapidCommand(command)) {
+      // Keyboard repeat must stay responsive, so volume/seek bypass the busy
+      // guard but are throttled to one send per 100 ms.
+      const now = Date.now()
+      if (now - lastRapidCommandAt < RAPID_COMMAND_INTERVAL_MS) {
+        return
+      }
+      lastRapidCommandAt = now
+    } else if (busy.value) {
+      return
+    }
     busy.value = true
     commandError.value = null
     try {
@@ -43,6 +61,9 @@ export function useSpeaker() {
   }
 
   async function play(target: PlayTarget): Promise<void> {
+    if (busy.value) {
+      return
+    }
     busy.value = true
     commandError.value = null
     try {

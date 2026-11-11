@@ -1,9 +1,10 @@
 import type { AlbumListing, AppConfig, CommandRequest, DeviceDetails, DiscoveredDevice, Favorite, FolderListing, LibraryListing, Playlist, PlayTarget, QueueSnapshot, RadioStation, RepeatMode, SleepStatus, SpeakerState } from '@shared/types'
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
+    signal: signal ?? init?.signal ?? null,
   })
 
   if (!response.ok) {
@@ -176,8 +177,8 @@ export function cancelSleep(): Promise<SleepStatus> {
   return request<SleepStatus>('/api/sleep', { method: 'DELETE' })
 }
 
-export function fetchQueue(): Promise<QueueSnapshot> {
-  return request<QueueSnapshot>('/api/queue')
+export function fetchQueue(signal?: AbortSignal): Promise<QueueSnapshot> {
+  return request<QueueSnapshot>('/api/queue', undefined, signal)
 }
 
 export function setQueueMode(patch: { repeat?: RepeatMode; shuffle?: boolean }): Promise<QueueSnapshot> {

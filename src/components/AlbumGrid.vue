@@ -105,6 +105,11 @@ function meta(album: LibraryAlbum): string {
   list-style: none;
 }
 
+.grid > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 190px;
+}
+
 .card {
   display: grid;
   gap: 3px;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import type { AlbumListing, Favorite, LibraryAlbum, LibraryEntry, LibraryListing, Playlist, QueueSnapshot, RadioStation } from '@shared/types'
 import {
   addCurrentToPlaylist,
@@ -60,7 +60,7 @@ const scrollArea = ref<HTMLElement | null>(null)
 const STATION_PAGE = 20
 let stationsGeneration = 0
 let stationsOffset = 0
-const library = ref<LibraryListing>({
+const library = shallowRef<LibraryListing>({
   libraries: [],
   entries: [],
   total: 0,
@@ -72,12 +72,12 @@ const library = ref<LibraryListing>({
 const libraryLoading = ref(false)
 const libraryError = ref<string | null>(null)
 const libraryFilter = ref('')
-const albums = ref<AlbumListing>({ libraries: [], albums: [], total: 0, query: '', limit: 60, offset: 0 })
+const albums = shallowRef<AlbumListing>({ libraries: [], albums: [], total: 0, query: '', limit: 60, offset: 0 })
 const albumsLoading = ref(false)
 const albumsError = ref<string | null>(null)
 const albumsLoaded = ref(false)
 const selectedAlbum = ref<LibraryAlbum | null>(null)
-const queue = ref<QueueSnapshot>({ items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] })
+const queue = shallowRef<QueueSnapshot>({ items: [], activeIndex: null, repeat: 'off', shuffle: false, order: [] })
 const queueError = ref<string | null>(null)
 const playlists = ref<Playlist[]>([])
 const selectedPlaylist = ref('')
@@ -89,6 +89,7 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 let libraryTimer: ReturnType<typeof setTimeout> | null = null
 let libraryGeneration = 0
 let albumGeneration = 0
+let queueController: AbortController | null = null
 let unsubscribeState: (() => void) | null = null
 let lastPlayingUrl = ''
 const playingUrl = ref('')
@@ -129,6 +130,14 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   document.body.classList.remove('drawer-open')
   unsubscribeState?.()
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  if (libraryTimer) {
+    clearTimeout(libraryTimer)
+    libraryTimer = null
+  }
 })
 
 let touchStartX = 0
@@ -232,9 +241,28 @@ async function playSelectedPlaylist(id: string): Promise<void> {
   }
 }
 
+/** Fetches the queue, aborting any previous in-flight queue request. */
+async function requestQueue(): Promise<QueueSnapshot | null> {
+  queueController?.abort()
+  const controller = new AbortController()
+  queueController = controller
+  try {
+    const snapshot = await fetchQueue(controller.signal)
+    return queueController === controller ? snapshot : null
+  } catch (cause) {
+    if (queueController !== controller || isAbortError(cause)) {
+      return null
+    }
+    throw cause
+  }
+}
+
 async function loadQueue(): Promise<void> {
   try {
-    queue.value = await fetchQueue()
+    const snapshot = await requestQueue()
+    if (snapshot) {
+      queue.value = snapshot
+    }
   } catch (cause) {
     queueError.value = message(cause)
   }
@@ -272,7 +300,10 @@ async function handOffQueue(): Promise<void> {
   speakerNote.value = null
   try {
     await startSpeakerQueue()
-    queue.value = await fetchQueue()
+    const snapshot = await requestQueue()
+    if (snapshot) {
+      queue.value = snapshot
+    }
     speakerNote.value = 'Playing from the speaker’s own queue. Next and previous now use the device.'
   } catch (cause) {
     queueError.value = message(cause)
@@ -521,6 +552,10 @@ async function runSearch(text: string): Promise<void> {
 
 function message(cause: unknown): string {
   return cause instanceof Error ? cause.message : 'Something went wrong'
+}
+
+function isAbortError(cause: unknown): boolean {
+  return cause instanceof Error && cause.name === 'AbortError'
 }
 
 function favoriteFor(url: string): Favorite | undefined {
@@ -1133,6 +1168,8 @@ function meta(station: RadioStation): string {
   gap: 4px;
   border-radius: 10px;
   transition: background 140ms ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
 }
 
 .row:hover {

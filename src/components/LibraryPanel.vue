@@ -143,6 +143,8 @@ function meta(entry: LibraryEntry): string {
   gap: 4px;
   border-radius: 10px;
   transition: background 140ms ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
 }
 
 .row:hover {
