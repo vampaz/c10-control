@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { PlayTarget, QueueItem, QueueSnapshot, RepeatMode, SpeakerState } from '../shared/types.ts'
 import { validateTarget } from './presets.ts'
@@ -9,6 +10,47 @@ let sequence = 0
 function itemId(url: string): string {
   sequence += 1
   return createHash('sha1').update(`${url}|${Date.now()}|${sequence}`).digest('hex').slice(0, 12)
+}
+
+/** Latest queue payload per store, kept until its asynchronous write lands. */
+const pendingStores = new Map<string, string>()
+/** Stores with a write in flight; further mutations coalesce into that write. */
+const writingStores = new Set<string>()
+
+/**
+ * Writes one store until the payload on disk is the latest known one. Only one
+ * write runs per path, so an older state can never land after a newer one.
+ */
+async function writeStore(path: string): Promise<void> {
+  try {
+    await mkdir(dirname(path), { recursive: true })
+    let payload = pendingStores.get(path)
+    while (payload !== undefined) {
+      const temporary = `${path}.tmp`
+      await writeFile(temporary, payload, 'utf8')
+      await rename(temporary, path)
+      if (pendingStores.get(path) === payload) {
+        // Nothing newer arrived while writing; the payload is on disk now.
+        pendingStores.delete(path)
+        return
+      }
+      payload = pendingStores.get(path)
+    }
+  } catch {
+    // Best effort only.
+    pendingStores.delete(path)
+  } finally {
+    writingStores.delete(path)
+  }
+}
+
+/** Records the newest payload and starts a write unless one is already running. */
+function scheduleWrite(path: string): void {
+  if (writingStores.has(path)) {
+    return
+  }
+  writingStores.add(path)
+  void writeStore(path)
 }
 
 /**
@@ -237,7 +279,9 @@ export class QueueController {
       return
     }
     try {
-      const raw = JSON.parse(readFileSync(this.storePath, 'utf8')) as {
+      // A restore that races an in-flight write reads its newest payload.
+      const pending = pendingStores.get(this.storePath)
+      const raw = JSON.parse(pending ?? readFileSync(this.storePath, 'utf8')) as {
         items?: unknown
         activeIndex?: unknown
         repeat?: unknown
@@ -279,15 +323,13 @@ export class QueueController {
       return
     }
     try {
-      mkdirSync(dirname(this.storePath), { recursive: true })
-      const temporary = `${this.storePath}.tmp`
-      writeFileSync(temporary, `${JSON.stringify({
+      pendingStores.set(this.storePath, `${JSON.stringify({
         items: this.items,
         activeIndex: this.activeIndex,
         repeat: this.repeat,
         shuffle: this.shuffle,
-      }, null, 2)}\n`, 'utf8')
-      renameSync(temporary, this.storePath)
+      })}\n`)
+      scheduleWrite(this.storePath)
     } catch {
       // Best effort only.
     }

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { createReadStream, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs'
-import { readdir, readFile, stat, mkdir, writeFile } from 'node:fs/promises'
+import { readdir, readFile, stat, mkdir, unlink, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import type { AlbumListing, AppConfig, LibraryAlbum, LibraryEntry, LibraryListing, LibraryRoot, PlayTarget } from '../shared/types.ts'
@@ -27,6 +27,7 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 }
 
 const CACHE_TTL_MS = 5 * 60_000
+const THUMB_TTL_MS = 30 * 24 * 60 * 60_000
 const DEFAULT_ALBUM_LIMIT = 60
 const MAX_ALBUM_LIMIT = 200
 
@@ -120,9 +121,18 @@ function isInside(root: string, candidate: string): boolean {
   return candidate === root || candidate.startsWith(`${root}${sep}`)
 }
 
+/** Resolved real paths, keyed by input path; cleared when the index rescans. */
+const realPaths = new Map<string, string>()
+
 function safeReal(path: string): string | null {
+  const cached = realPaths.get(path)
+  if (cached !== undefined) {
+    return cached
+  }
   try {
-    return realpathSync(path)
+    const real = realpathSync(path)
+    realPaths.set(path, real)
+    return real
   } catch {
     return null
   }
@@ -245,6 +255,7 @@ export class LibraryService {
   /** Starts indexing at boot so the first Browse request is usually instant. */
   warmup(): void {
     void (async () => {
+      void this.evictThumbnails()
       for (const library of this.getConfig().libraries) {
         await this.files(library.path).catch(() => undefined)
       }
@@ -747,6 +758,27 @@ export class LibraryService {
     return work
   }
 
+  /** Deletes thumbnails older than 30 days; one best-effort sweep at startup. */
+  private async evictThumbnails(): Promise<void> {
+    try {
+      const directory = join(getDataDirectory(), 'thumbs')
+      const entries = await readdir(directory, { withFileTypes: true })
+      const cutoff = Date.now() - THUMB_TTL_MS
+      await Promise.all(entries.map(async (entry) => {
+        if (!entry.isFile()) {
+          return
+        }
+        const path = join(directory, entry.name)
+        const info = await stat(path).catch(() => null)
+        if (info && info.mtimeMs < cutoff) {
+          await unlink(path).catch(() => undefined)
+        }
+      }))
+    } catch {
+      // Best effort only: a failed sweep leaves the directory untouched.
+    }
+  }
+
   /**
    * Maps a playing library file URL to its artwork endpoint. Local files have no
    * DIDL artwork, so the poller asks for one when the speaker reports none.
@@ -916,6 +948,8 @@ export class LibraryService {
     const scanning = scan(root, cached?.dirs)
       .then((state) => {
         this.cache.set(root, { at: Date.now(), files: state.files, dirs: state.dirs })
+        // A fresh index may point at replaced files; drop stale real paths.
+        realPaths.clear()
         // A fresh listing may contain new folders; index their tags too.
         this.scheduleTagRefresh()
         return state.files

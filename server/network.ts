@@ -1,9 +1,18 @@
 import { networkInterfaces } from 'node:os'
 
+const INTERFACE_CACHE_MS = 60_000
+let cachedInterfaces: ReturnType<typeof networkInterfaces> | null = null
+let cachedInterfacesAt = 0
+
 /** IPv4 addresses of this machine that are not loopback or link-local. */
 export function localAddresses(): string[] {
+  const now = Date.now()
+  if (!cachedInterfaces || now - cachedInterfacesAt >= INTERFACE_CACHE_MS) {
+    cachedInterfaces = networkInterfaces()
+    cachedInterfacesAt = now
+  }
   const addresses: string[] = []
-  for (const entries of Object.values(networkInterfaces())) {
+  for (const entries of Object.values(cachedInterfaces)) {
     for (const entry of entries ?? []) {
       if (entry.family === 'IPv4' && !entry.internal && !entry.address.startsWith('169.254.')) {
         addresses.push(entry.address)
