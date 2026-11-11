@@ -67,6 +67,20 @@ interface AlbumTagEntry {
   artist?: string
 }
 
+interface DirectoryState {
+  /** Mtime at the last walk, so an unchanged folder can be skipped. */
+  mtime: number
+  /** Files directly inside this directory, reused when the folder is skipped. */
+  files: LibraryFile[]
+  /** Absolute paths of the subdirectories seen at the last walk. */
+  children: string[]
+}
+
+interface ScanResult {
+  files: LibraryFile[]
+  dirs: Map<string, DirectoryState>
+}
+
 /** Lowercases and strips accents, so "Oxigenio" finds "Oxigénio". */
 function fold(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -148,9 +162,14 @@ export function parseRange(header: string | undefined, size: number): ByteRange 
   return { start, end: Math.min(end, size - 1) }
 }
 
-/** Reads only directory entries; file sizes are fetched for the visible page. */
-async function scan(root: string): Promise<LibraryFile[]> {
-  const files: LibraryFile[] = []
+/**
+ * Walks the library with 8 workers. A directory whose mtime did not change is
+ * skipped: it keeps its previous files and only its known children are
+ * revisited, so a revalidation re-reads just the folders that gained or lost
+ * entries.
+ */
+async function scan(root: string, previous?: Map<string, DirectoryState>): Promise<ScanResult> {
+  const dirs = new Map<string, DirectoryState>()
   const directories = [root]
 
   async function worker(): Promise<void> {
@@ -160,6 +179,16 @@ async function scan(root: string): Promise<LibraryFile[]> {
         return
       }
 
+      const info = await stat(directory).catch(() => null)
+      // A missing stat never matches, so an unreadable folder is re-walked.
+      const mtime = info ? info.mtimeMs : Number.NaN
+      const seen = previous?.get(directory)
+      if (seen && seen.mtime === mtime) {
+        dirs.set(directory, seen)
+        directories.push(...seen.children)
+        continue
+      }
+
       let entries
       try {
         entries = await readdir(directory, { withFileTypes: true })
@@ -167,37 +196,42 @@ async function scan(root: string): Promise<LibraryFile[]> {
         continue
       }
 
+      const state: DirectoryState = { mtime, files: [], children: [] }
       for (const entry of entries) {
         if (entry.name.startsWith('.')) {
           continue
         }
         const full = join(directory, entry.name)
         if (entry.isDirectory()) {
+          state.children.push(full)
           directories.push(full)
         } else if (entry.isFile() && isAudioFile(entry.name)) {
           const path = relative(root, full).split(sep).join('/')
-          files.push({
+          state.files.push({
             id: createHash('sha1').update(`${root}|${path}`).digest('hex').slice(0, 12),
             name: basename(entry.name, extname(entry.name)),
             path,
           })
         }
       }
+      dirs.set(directory, state)
     }
   }
 
   await Promise.all(Array.from({ length: 8 }, () => worker()))
-  return files.sort((left, right) => left.path.localeCompare(right.path))
+  const files = [...dirs.values()].flatMap((state) => state.files)
+  return { files: files.sort((left, right) => left.path.localeCompare(right.path)), dirs }
 }
 
 /** Indexes the configured folders and serves their files to the speaker. */
 export class LibraryService {
-  private readonly cache = new Map<string, { at: number; files: LibraryFile[] }>()
+  private readonly cache = new Map<string, { at: number; files: LibraryFile[]; dirs: Map<string, DirectoryState> }>()
   private readonly albumCache = new Map<string, { at: number; entries: AlbumIndexEntry[] }>()
   private readonly artPresence = new Map<string, boolean>()
   private readonly tagCache = new Map<string, { at: number; tags: TrackTags }>()
   private readonly albumTags = new Map<string, AlbumTagEntry>()
   private readonly scanning = new Map<string, Promise<LibraryFile[]>>()
+  private readonly inFlight = new Map<string, Promise<CoverArt | null>>()
   private tagRefresh: Promise<void> | null = null
   private readonly getConfig: () => AppConfig
   private readonly port: number
@@ -653,7 +687,20 @@ export class LibraryService {
   /** Cover art embedded in a library file, or an image from its album folder. */
   async artwork(libraryId: string, relativePath: string): Promise<CoverArt | null> {
     const file = this.resolveFile(libraryId, relativePath)
-    return file ? readCoverArt(file) : null
+    if (!file) {
+      return null
+    }
+
+    const running = this.inFlight.get(file)
+    if (running) {
+      return running
+    }
+
+    const work = readCoverArt(file).finally(() => {
+      this.inFlight.delete(file)
+    })
+    this.inFlight.set(file, work)
+    return work
   }
 
   /**
@@ -678,14 +725,26 @@ export class LibraryService {
       return { data: cached, mime: 'image/webp' }
     }
 
-    const art = await readCoverArt(file).catch(() => null)
-    if (!art) {
-      return null
+    const running = this.inFlight.get(key)
+    if (running) {
+      return running
     }
-    const resized = await makeThumbnail(art, size)
-    await mkdir(join(getDataDirectory(), 'thumbs'), { recursive: true }).catch(() => undefined)
-    await writeFile(cachedPath, resized.data).catch(() => undefined)
-    return resized
+
+    const work = (async () => {
+      const art = await readCoverArt(file).catch(() => null)
+      if (!art) {
+        return null
+      }
+      const resized = await makeThumbnail(art, size)
+      await mkdir(join(getDataDirectory(), 'thumbs'), { recursive: true }).catch(() => undefined)
+      await writeFile(cachedPath, resized.data).catch(() => undefined)
+      return resized
+    })().finally(() => {
+      this.inFlight.delete(key)
+    })
+
+    this.inFlight.set(key, work)
+    return work
   }
 
   /**
@@ -851,21 +910,27 @@ export class LibraryService {
 
     const running = this.scanning.get(root)
     if (running) {
-      return running
+      return cached ? cached.files : running
     }
 
-    const scanning = scan(root)
-      .then((files) => {
-        this.cache.set(root, { at: Date.now(), files })
+    const scanning = scan(root, cached?.dirs)
+      .then((state) => {
+        this.cache.set(root, { at: Date.now(), files: state.files, dirs: state.dirs })
         // A fresh listing may contain new folders; index their tags too.
         this.scheduleTagRefresh()
-        return files
+        return state.files
       })
       .finally(() => {
         this.scanning.delete(root)
       })
 
     this.scanning.set(root, scanning)
+
+    if (cached) {
+      // Expired: refresh in the background and answer from the stale index.
+      void scanning.catch(() => undefined)
+      return cached.files
+    }
     return scanning
   }
 }
