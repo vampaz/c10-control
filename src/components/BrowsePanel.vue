@@ -735,7 +735,13 @@ function meta(station: RadioStation): string {
           <h3>Favorites</h3>
           <ul v-if="favorites.length" class="list">
             <li v-for="station in favorites" :key="station.id" class="row">
-              <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
+              <button
+                type="button"
+                class="row-main"
+                :class="{ pending: busyUrl === station.url }"
+                :disabled="busyUrl !== null"
+                @click="playStation(station)"
+              >
                 <span class="row-name">{{ station.name }}</span>
                 <span class="row-meta">{{ meta(station) || 'Saved station' }}</span>
               </button>
@@ -758,7 +764,13 @@ function meta(station: RadioStation): string {
           <p v-if="stationsError" class="error" role="alert">{{ stationsError }}</p>
           <ul v-else-if="topStations.length" class="list">
             <li v-for="station in topStations" :key="station.id" class="row">
-              <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
+              <button
+                type="button"
+                class="row-main"
+                :class="{ pending: busyUrl === station.url }"
+                :disabled="busyUrl !== null"
+                @click="playStation(station)"
+              >
                 <span class="row-name">{{ station.name }}</span>
                 <span class="row-meta">{{ meta(station) }}</span>
               </button>
@@ -793,7 +805,13 @@ function meta(station: RadioStation): string {
           <h3>{{ searching ? 'Searching…' : 'Results' }}</h3>
           <ul v-if="results.length" class="list">
             <li v-for="station in results" :key="station.id" class="row">
-              <button type="button" class="row-main" :disabled="busyUrl !== null" @click="playStation(station)">
+              <button
+                type="button"
+                class="row-main"
+                :class="{ pending: busyUrl === station.url }"
+                :disabled="busyUrl !== null"
+                @click="playStation(station)"
+              >
                 <span class="row-name">{{ station.name }}</span>
                 <span class="row-meta">{{ meta(station) }}</span>
               </button>
@@ -1196,6 +1214,11 @@ function meta(station: RadioStation): string {
 
 .row-main:disabled {
   cursor: progress;
+}
+
+/* Only the row that started the request shows progress; dimming every row
+   while one stream opens makes the whole list flash. */
+.row-main.pending {
   opacity: 0.6;
 }
 

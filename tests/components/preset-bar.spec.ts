@@ -36,7 +36,18 @@ describe('PresetBar', () => {
   it('disables empty slots when nothing is playing', () => {
     const wrapper = mount(PresetBar, { props: { presets: slots(), current: null, busy: false } })
 
-    expect((wrapper.findAll('.slot-main')[0].element as HTMLButtonElement).disabled).toBe(true)
+    const empty = wrapper.findAll('.slot-main')[0]
+    expect((empty.element as HTMLButtonElement).disabled).toBe(true)
+    expect(empty.classes()).toContain('unavailable')
+    wrapper.unmount()
+  })
+
+  it('does not dim empty slots while a command is busy', () => {
+    const wrapper = mount(PresetBar, { props: { presets: slots(), current: TARGET, busy: true } })
+
+    const empty = wrapper.findAll('.slot-main')[2]
+    expect((empty.element as HTMLButtonElement).disabled).toBe(true)
+    expect(empty.classes()).not.toContain('unavailable')
     wrapper.unmount()
   })
 

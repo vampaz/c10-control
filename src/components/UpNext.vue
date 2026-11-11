@@ -130,7 +130,6 @@ const rows = computed(() => {
 }
 
 .row:disabled {
-  opacity: 0.5;
   cursor: progress;
 }
 

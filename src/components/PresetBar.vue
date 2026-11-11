@@ -55,6 +55,7 @@ function hideArt(event: Event): void {
         v-else
         type="button"
         class="slot-main empty"
+        :class="{ unavailable: !current }"
         :disabled="busy || !current"
         @click="emit('save', index)"
       >
@@ -122,6 +123,11 @@ function hideArt(event: Event): void {
 
 .slot-main:disabled {
   cursor: default;
+}
+
+/* Only an empty slot with nothing to save needs to look inactive. Busy
+   disables the buttons for a moment, which must not dim the preset row. */
+.slot-main.empty.unavailable {
   opacity: 0.45;
 }
 

@@ -92,7 +92,6 @@ function toggleShuffle(): void {
 }
 
 .mode:disabled {
-  opacity: 0.5;
   cursor: default;
 }
 </style>

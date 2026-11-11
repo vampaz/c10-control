@@ -159,6 +159,29 @@ describe('BrowsePanel', () => {
     wrapper.unmount()
   })
 
+  it('marks only the row that is starting playback as pending', async () => {
+    favorites.mockResolvedValue([
+      STATION,
+      { ...STATION, id: 'other', name: 'Other station', url: 'http://stream.example.com/other' },
+    ])
+    let resolvePlay: () => void = () => undefined
+    playStream.mockImplementationOnce(() => new Promise<undefined>((resolve) => {
+      resolvePlay = () => resolve(undefined)
+    }))
+    const wrapper = await mountPanel()
+
+    await wrapper.findAll('.row-main')[0].trigger('click')
+
+    expect(wrapper.findAll('.row-main')[0].classes()).toContain('pending')
+    expect(wrapper.findAll('.row-main')[1].classes()).not.toContain('pending')
+
+    resolvePlay()
+    await flushPromises()
+
+    expect(wrapper.findAll('.row-main')[0].classes()).not.toContain('pending')
+    wrapper.unmount()
+  })
+
   it('removes a favorite from the star', async () => {
     favorites.mockResolvedValue([STATION])
     removeFavorite.mockResolvedValue([])

@@ -169,7 +169,6 @@ function onSeekCommit(): void {
 
 .play-button:disabled,
 .icon-button:disabled {
-  opacity: 0.45;
   cursor: progress;
 }
 </style>
