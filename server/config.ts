@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import type { AppConfig, LibraryRoot } from '../shared/types.ts'
@@ -174,16 +174,29 @@ export function validateConfig(patch: ConfigPatch): Partial<AppConfig> {
   return clean
 }
 
+/** Parsed config.json, validated against the file's mtime and size. */
+let storedCache: { path: string; mtimeMs: number; size: number; value: Partial<AppConfig> } | null = null
+
 function readStoredConfig(): Partial<AppConfig> {
+  const path = configPath()
   try {
-    const stored = JSON.parse(readFileSync(configPath(), 'utf8')) as Record<string, unknown>
+    const stats = statSync(path)
+    const cached = storedCache
+    if (cached && cached.path === path && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+      return cached.value
+    }
+
+    const stored = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
     // Migrate the single-folder format from older versions.
     if (!Array.isArray(stored.libraries) && typeof stored.libraryDir === 'string' && stored.libraryDir.trim()) {
       stored.libraries = [{ path: stored.libraryDir }]
     }
     delete stored.libraryDir
-    return validateConfig(stored as ConfigPatch)
+    const value = validateConfig(stored as ConfigPatch)
+    storedCache = { path, mtimeMs: stats.mtimeMs, size: stats.size, value }
+    return value
   } catch {
+    storedCache = null
     return {}
   }
 }
@@ -209,6 +222,8 @@ export function saveConfig(patch: ConfigPatch): AppConfig {
   }
 
   const persisted = { ...readStoredConfig(), ...clean }
+  // The next read must load the file this write replaces.
+  storedCache = null
   mkdirSync(getDataDirectory(), { recursive: true })
   // Write beside the target and rename, so a crash cannot truncate the config.
   const temporary = `${configPath()}.tmp`

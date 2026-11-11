@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Playlist, PlaylistItem, PlayTarget } from '../shared/types.ts'
 import { validateTarget } from './presets.ts'
@@ -36,6 +36,8 @@ function isPlaylist(value: unknown): value is Playlist {
 /** Playlists of any source: library files, radio stations or Plex tracks. */
 export class PlaylistStore {
   private readonly file: string
+  /** Parsed file contents, validated against the file's mtime and size. */
+  private cache: { mtimeMs: number; size: number; value: Playlist[] } | null = null
 
   constructor(directory: string) {
     this.file = join(directory, 'playlists.json')
@@ -115,14 +117,25 @@ export class PlaylistStore {
 
   private read(): Playlist[] {
     try {
+      const stats = statSync(this.file)
+      const cached = this.cache
+      if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+        return cached.value
+      }
+
       const parsed: unknown = JSON.parse(readFileSync(this.file, 'utf8'))
-      return Array.isArray(parsed) ? parsed.filter(isPlaylist) : []
+      const value = Array.isArray(parsed) ? parsed.filter(isPlaylist) : []
+      this.cache = { mtimeMs: stats.mtimeMs, size: stats.size, value }
+      return value
     } catch {
+      this.cache = null
       return []
     }
   }
 
   private write(playlists: Playlist[]): void {
+    // Mutators edit the cached array in place, so drop it before touching the file.
+    this.cache = null
     mkdirSync(join(this.file, '..'), { recursive: true })
     writeFileSync(this.file, `${JSON.stringify(playlists, null, 2)}\n`, 'utf8')
   }

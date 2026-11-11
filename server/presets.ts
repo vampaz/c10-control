@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { PlayTarget } from '../shared/types.ts'
 
@@ -41,6 +41,8 @@ function isPlayTarget(value: unknown): value is PlayTarget {
 /** Six one-tap slots, saved next to the configuration. */
 export class PresetStore {
   private readonly file: string
+  /** Parsed file contents, validated against the file's mtime and size. */
+  private cache: { mtimeMs: number; size: number; value: (PlayTarget | null)[] } | null = null
 
   constructor(directory: string) {
     this.file = join(directory, 'presets.json')
@@ -68,14 +70,24 @@ export class PresetStore {
 
   private read(): (PlayTarget | null)[] {
     try {
+      const stats = statSync(this.file)
+      const cached = this.cache
+      if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+        return cached.value
+      }
+
       const parsed: unknown = JSON.parse(readFileSync(this.file, 'utf8'))
-      return Array.isArray(parsed) ? parsed.map((entry) => (isPlayTarget(entry) ? entry : null)) : []
+      const value = Array.isArray(parsed) ? parsed.map((entry) => (isPlayTarget(entry) ? entry : null)) : []
+      this.cache = { mtimeMs: stats.mtimeMs, size: stats.size, value }
+      return value
     } catch {
+      this.cache = null
       return []
     }
   }
 
   private write(slots: (PlayTarget | null)[]): void {
+    this.cache = null
     mkdirSync(join(this.file, '..'), { recursive: true })
     writeFileSync(this.file, `${JSON.stringify(slots, null, 2)}\n`, 'utf8')
   }

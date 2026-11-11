@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Favorite, RadioStation } from '../shared/types.ts'
 
@@ -51,6 +51,8 @@ function isFavorite(value: unknown): value is Favorite {
 /** Favourites live next to the configuration, so they survive restarts. */
 export class FavoriteStore {
   private readonly file: string
+  /** Parsed file contents, validated against the file's mtime and size. */
+  private cache: { mtimeMs: number; size: number; value: Favorite[] } | null = null
 
   constructor(directory: string) {
     this.file = join(directory, 'favorites.json')
@@ -78,14 +80,24 @@ export class FavoriteStore {
 
   private read(): Favorite[] {
     try {
+      const stats = statSync(this.file)
+      const cached = this.cache
+      if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+        return cached.value
+      }
+
       const parsed: unknown = JSON.parse(readFileSync(this.file, 'utf8'))
-      return Array.isArray(parsed) ? parsed.filter(isFavorite) : []
+      const value = Array.isArray(parsed) ? parsed.filter(isFavorite) : []
+      this.cache = { mtimeMs: stats.mtimeMs, size: stats.size, value }
+      return value
     } catch {
+      this.cache = null
       return []
     }
   }
 
   private write(favorites: Favorite[]): void {
+    this.cache = null
     mkdirSync(join(this.file, '..'), { recursive: true })
     writeFileSync(this.file, `${JSON.stringify(favorites, null, 2)}\n`, 'utf8')
   }

@@ -17,7 +17,7 @@ const server = createServer((request, response) => {
     return
   }
 
-  if (!serveStatic(DIST, pathname, response)) {
+  if (!serveStatic(DIST, pathname, response, request.headers['accept-encoding'])) {
     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
     response.end('Not found. Run `npm run build` first.')
   }
