@@ -159,7 +159,8 @@ function streamState(deps: AppDependencies, request: IncomingMessage, response: 
   const unsubscribe = deps.poller.subscribe((state) => {
     response.write(`data: ${JSON.stringify(state)}\n\n`)
   })
-  const heartbeat = setInterval(() => response.write(': keep-alive\n\n'), 20_000)
+  // A named event lets the client tell a live connection from a half-open one.
+  const heartbeat = setInterval(() => response.write('event: ping\ndata: 1\n\n'), 20_000)
 
   request.on('close', () => {
     clearInterval(heartbeat)

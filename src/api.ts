@@ -54,10 +54,15 @@ export async function discoverDevices(): Promise<DiscoveredDevice[]> {
 }
 
 export async function playStream(target: PlayTarget): Promise<SpeakerState> {
-  return request<SpeakerState>('/api/play', {
+  const state = await request<SpeakerState>('/api/play', {
     method: 'POST',
     body: JSON.stringify(target),
   })
+  // The player shows state from the shared stream. Publish this authoritative
+  // response too, so starting a stream updates immediately even if the stream
+  // is catching up or was interrupted.
+  publishState(state)
+  return state
 }
 
 /** Plays a library file with the rest of its folder queued behind it. */
@@ -271,13 +276,68 @@ export function playPlaylist(id: string): Promise<QueueSnapshot> {
 
 const stateListeners = new Set<(state: SpeakerState) => void>()
 const statusListeners = new Set<(open: boolean) => void>()
+const PING_TIMEOUT_MS = 45_000
+const WATCHDOG_INTERVAL_MS = 10_000
 let eventSource: EventSource | null = null
 let lastState: SpeakerState | null = null
+let lastActivityAt = 0
+let watchdog: ReturnType<typeof setInterval> | null = null
+let wakeListenersBound = false
+
+function publishState(state: SpeakerState): void {
+  lastState = state
+  for (const listener of stateListeners) {
+    listener(state)
+  }
+}
+
+function markActivity(): void {
+  lastActivityAt = Date.now()
+}
+
+/**
+ * A long-lived connection can stay "open" on the client after the network or
+ * the device slept, so replace it when the page comes back. Reconnecting makes
+ * the server resend its current state.
+ */
+function reconnect(): void {
+  if (!eventSource) {
+    return
+  }
+  eventSource.close()
+  eventSource = null
+  ensureEventSource()
+}
+
+function bindWakeListeners(): void {
+  if (wakeListenersBound) {
+    return
+  }
+  wakeListenersBound = true
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      reconnect()
+    }
+  })
+  window.addEventListener('online', reconnect)
+}
+
+function startWatchdog(): void {
+  watchdog ??= setInterval(() => {
+    // A half-open connection still looks open. Replace it when the server's
+    // heartbeats stop arriving, so the next subscription gets fresh state.
+    if (eventSource?.readyState === EventSource.OPEN && Date.now() - lastActivityAt > PING_TIMEOUT_MS) {
+      reconnect()
+    }
+  }, WATCHDOG_INTERVAL_MS)
+}
 
 function ensureEventSource(): EventSource {
   if (!eventSource) {
+    bindWakeListeners()
     eventSource = new EventSource('/api/events')
     eventSource.onopen = () => {
+      markActivity()
       for (const listener of statusListeners) {
         listener(true)
       }
@@ -288,12 +348,11 @@ function ensureEventSource(): EventSource {
       }
     }
     eventSource.onmessage = (event) => {
-      const next = JSON.parse(event.data) as SpeakerState
-      lastState = next
-      for (const listener of stateListeners) {
-        listener(next)
-      }
+      markActivity()
+      publishState(JSON.parse(event.data) as SpeakerState)
     }
+    eventSource.addEventListener('ping', markActivity)
+    startWatchdog()
   }
   return eventSource
 }
@@ -316,6 +375,11 @@ export function subscribeState(onState: (state: SpeakerState) => void, onStatus:
       source.close()
       eventSource = null
       lastState = null
+      lastActivityAt = 0
+      if (watchdog) {
+        clearInterval(watchdog)
+        watchdog = null
+      }
     }
   }
 }

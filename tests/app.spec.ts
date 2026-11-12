@@ -921,6 +921,33 @@ describe('events', () => {
       controller.abort()
     }
   })
+
+  it('sends a ping event while the stream is idle', async () => {
+    vi.useFakeTimers()
+    const state = connectedState()
+    const poller = {
+      subscribe: (listener: (value: unknown) => void) => {
+        listener(state)
+        return () => undefined
+      },
+    } as unknown as SpeakerPoller
+    const { url } = await start(makeDeps({ poller }))
+    const controller = new AbortController()
+
+    try {
+      const response = await fetch(`${url}/api/events`, { signal: controller.signal })
+      const reader = response.body?.getReader()
+      await reader?.read()
+
+      await vi.advanceTimersByTimeAsync(20_000)
+      const ping = await reader?.read()
+
+      expect(new TextDecoder().decode(ping?.value)).toContain('event: ping')
+    } finally {
+      controller.abort()
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('speaker queue', () => {
