@@ -1,9 +1,10 @@
 /* App shell cache. Bump the version when the shell changes. */
-const CACHE = 'c10-shell-v1'
+const CACHE = 'c10-shell-v2'
 const SHELL = [
   '/',
   '/manifest.webmanifest',
   '/favicon.svg',
+  '/icons.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/maskable-512.png',
@@ -43,6 +44,7 @@ self.addEventListener('fetch', (event) => {
 
   if (url.pathname.startsWith('/assets/')
     || url.pathname.startsWith('/icons/')
+    || url.pathname === '/icons.svg'
     || url.pathname === '/favicon.svg'
     || url.pathname === '/manifest.webmanifest') {
     event.respondWith(

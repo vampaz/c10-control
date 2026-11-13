@@ -52,7 +52,7 @@ function meta(album: LibraryAlbum): string {
               @error="onError(album.id)"
             />
             <span v-else class="fallback" aria-hidden="true">
-              <AppIcon name="broadcast" :size="22" />
+              <AppIcon name="music" :size="22" />
             </span>
           </span>
           <span class="name">{{ album.name }}</span>

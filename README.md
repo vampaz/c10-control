@@ -155,3 +155,5 @@ Architecture, protocol details, the HTTP API, data files and the source layout a
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+Icons are from the [IBM Carbon Design System](https://carbondesignsystem.com) and are licensed under [Apache-2.0](https://github.com/carbon-design-system/carbon/blob/main/LICENSE).
