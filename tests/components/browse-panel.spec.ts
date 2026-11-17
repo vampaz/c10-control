@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AlbumListing, Favorite, LibraryListing, Playlist, QueueSnapshot, RadioStation } from '@shared/types'
+import type { AlbumListing, Favorite, LibraryEntry, LibraryListing, Playlist, QueueSnapshot, RadioStation } from '@shared/types'
 
 const favorites = vi.fn<() => Promise<Favorite[]>>()
 const addFavorite = vi.fn(async (_station: unknown): Promise<Favorite[]> => [])
@@ -14,7 +14,7 @@ const moveQueue = vi.fn(async (_from: number, _to: number): Promise<QueueSnapsho
 const subscribeState = vi.fn((_onState: (state: unknown) => void, _onStatus: (open: boolean) => void) => () => undefined)
 const searchRadio = vi.fn(async (_query: string) => [])
 const fetchTopStations = vi.fn(async (_limit: number, _offset: number): Promise<RadioStation[]> => [])
-const fetchLibrary = vi.fn<() => Promise<LibraryListing>>(async () => ({
+const fetchLibrary = vi.fn<(query: string, limit: number, offset: number, libraryId: string, dir: string) => Promise<LibraryListing>>(async () => ({
   libraries: [],
   entries: [],
   total: 0,
@@ -34,7 +34,7 @@ const ALBUM = {
   trackCount: 1,
   artworkUrl: '/api/library/art?library=main&path=Album%2FTrack.mp3',
 }
-const fetchAlbums = vi.fn<() => Promise<AlbumListing>>(async () => ({
+const fetchAlbums = vi.fn<(query: string, limit: number, offset: number, libraryId: string) => Promise<AlbumListing>>(async () => ({
   libraries: [{ id: 'main', name: 'Main', path: '/music' }],
   albums: [ALBUM],
   total: 1,
@@ -68,8 +68,8 @@ vi.mock('@/api', () => ({
   searchRadio: (query: string) => searchRadio(query),
   fetchTopStations: (limit: number, offset: number) => fetchTopStations(limit, offset),
   startSpeakerQueue: () => Promise.resolve({ ok: true, tracks: 1 }),
-  fetchLibrary: () => fetchLibrary(),
-  fetchAlbums: () => fetchAlbums(),
+  fetchLibrary: (...args: [string, number, number, string, string]) => fetchLibrary(...args),
+  fetchAlbums: (...args: [string, number, number, string]) => fetchAlbums(...args),
   fetchQueue: () => fetchQueue(),
   addToQueue: (target: unknown) => addToQueue(target),
   removeFromQueue: (id: string) => removeFromQueue(id),
@@ -103,6 +103,15 @@ async function mountPanel() {
   return wrapper
 }
 
+function setScrollMetrics(
+  element: Element,
+  metrics: { scrollTop: number; clientHeight: number; scrollHeight: number },
+): void {
+  for (const [key, value] of Object.entries(metrics)) {
+    Object.defineProperty(element, key, { configurable: true, value })
+  }
+}
+
 beforeEach(() => {
   favorites.mockReset()
   addFavorite.mockReset()
@@ -110,6 +119,7 @@ beforeEach(() => {
   playStream.mockClear()
   searchRadio.mockClear()
   fetchLibrary.mockClear()
+  fetchAlbums.mockClear()
   fetchQueue.mockClear()
   addToQueue.mockClear()
   removeFromQueue.mockClear()
@@ -365,6 +375,146 @@ describe('BrowsePanel', () => {
     await flushPromises()
 
     expect(createPlaylist).toHaveBeenCalledWith('Mix')
+    wrapper.unmount()
+  })
+
+  it('waits until the scroll area is near the end before loading more albums', async () => {
+    favorites.mockResolvedValue([])
+    const firstPage: AlbumListing = {
+      libraries: [{ id: 'main', name: 'Main', path: '/music' }],
+      albums: [ALBUM],
+      total: 2,
+      query: '',
+      limit: 60,
+      offset: 0,
+    }
+    const secondPage: AlbumListing = {
+      ...firstPage,
+      albums: [{ ...ALBUM, id: 'al2', name: 'Album 2', path: 'Album 2', dirs: ['Album 2'] }],
+      offset: 1,
+    }
+    fetchAlbums
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage)
+    const wrapper = await mountPanel()
+
+    await wrapper.findAll('.tabs button')[1].trigger('click')
+    await flushPromises()
+    expect(fetchAlbums).toHaveBeenCalledTimes(2)
+
+    const area = wrapper.get('.scroll').element
+    setScrollMetrics(area, { scrollTop: 0, clientHeight: 500, scrollHeight: 3000 })
+    await wrapper.get('.scroll').trigger('scroll')
+    await flushPromises()
+    expect(fetchAlbums).toHaveBeenCalledTimes(2)
+
+    setScrollMetrics(area, { scrollTop: 2600, clientHeight: 500, scrollHeight: 3000 })
+    await wrapper.get('.scroll').trigger('scroll')
+    await flushPromises()
+
+    expect(fetchAlbums).toHaveBeenLastCalledWith('', 60, 1, '')
+    expect(wrapper.text()).toContain('Album 2')
+    wrapper.unmount()
+  })
+
+  it('returns the scroll area to the top when changing tabs', async () => {
+    favorites.mockResolvedValue([])
+    const wrapper = await mountPanel()
+    const area = wrapper.get('.scroll').element
+    Object.defineProperty(area, 'scrollTop', { configurable: true, writable: true, value: 800 })
+
+    await wrapper.findAll('.tabs button')[1].trigger('click')
+
+    expect(area.scrollTop).toBe(0)
+    wrapper.unmount()
+  })
+
+  it('loads more albums once when the library list reaches the end', async () => {
+    favorites.mockResolvedValue([])
+    const firstPage: AlbumListing = {
+      libraries: [{ id: 'main', name: 'Main', path: '/music' }],
+      albums: [ALBUM],
+      total: 2,
+      query: '',
+      limit: 60,
+      offset: 0,
+    }
+    const secondPage: AlbumListing = {
+      ...firstPage,
+      albums: [{ ...ALBUM, id: 'al2', name: 'Album 2', path: 'Album 2', dirs: ['Album 2'] }],
+      offset: 1,
+    }
+    fetchAlbums
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage)
+    const wrapper = await mountPanel()
+
+    await wrapper.findAll('.tabs button')[1].trigger('click')
+    await flushPromises()
+    expect(fetchAlbums).toHaveBeenLastCalledWith('', 60, 0, '')
+
+    const area = wrapper.get('.scroll')
+    void area.trigger('scroll')
+    await area.trigger('scroll')
+    await flushPromises()
+
+    expect(fetchAlbums).toHaveBeenLastCalledWith('', 60, 1, '')
+    expect(wrapper.text()).toContain('Album 2')
+
+    const callsAfterLoad = fetchAlbums.mock.calls.length
+    await area.trigger('scroll')
+    await flushPromises()
+
+    expect(fetchAlbums.mock.calls.length).toBe(callsAfterLoad)
+    wrapper.unmount()
+  })
+
+  it('loads more tracks when an open album reaches the end', async () => {
+    favorites.mockResolvedValue([])
+    function entry(id: string, name: string): LibraryEntry {
+      return {
+        id,
+        libraryId: 'main',
+        libraryName: 'Main',
+        name,
+        path: `Album/${name}.mp3`,
+        size: 10,
+        modifiedAt: 1,
+        url: `http://192.168.1.135:5173/api/library/file?library=main&path=Album%2F${name}.mp3`,
+      }
+    }
+    const firstPage: LibraryListing = {
+      libraries: [{ id: 'main', name: 'Main', path: '/music' }],
+      mediaBaseUrl: 'http://192.168.1.135:5173',
+      entries: [entry('a', 'Track')],
+      total: 2,
+      query: '',
+      limit: 200,
+      offset: 0,
+    }
+    const secondPage: LibraryListing = { ...firstPage, entries: [entry('b', 'Track 2')], offset: 1 }
+    fetchLibrary.mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage)
+    const wrapper = await mountPanel()
+
+    await wrapper.findAll('.tabs button')[1].trigger('click')
+    await flushPromises()
+    await wrapper.get('.card').trigger('click')
+    await flushPromises()
+    expect(fetchLibrary).toHaveBeenLastCalledWith('', 200, 0, 'main', 'Album')
+
+    await wrapper.get('.scroll').trigger('scroll')
+    await flushPromises()
+
+    expect(fetchLibrary).toHaveBeenLastCalledWith('', 200, 1, 'main', 'Album')
+    expect(wrapper.text()).toContain('Track 2')
+
+    const callsAfterLoad = fetchLibrary.mock.calls.length
+    await wrapper.get('.scroll').trigger('scroll')
+    await flushPromises()
+
+    expect(fetchLibrary.mock.calls.length).toBe(callsAfterLoad)
     wrapper.unmount()
   })
 })

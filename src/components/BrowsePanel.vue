@@ -373,9 +373,10 @@ async function loadLibrary(reset = true): Promise<void> {
 }
 
 function loadMoreLibrary(): void {
-  if (!libraryLoading.value) {
-    void loadLibrary(false)
+  if (libraryLoading.value || library.value.entries.length >= library.value.total) {
+    return
   }
+  void loadLibrary(false)
 }
 
 async function loadAlbums(reset = true): Promise<void> {
@@ -407,20 +408,23 @@ async function loadAlbums(reset = true): Promise<void> {
 }
 
 function loadMoreAlbums(): void {
-  if (!albumsLoading.value) {
-    void loadAlbums(false)
+  if (albumsLoading.value || albums.value.albums.length >= albums.value.total) {
+    return
   }
+  void loadAlbums(false)
 }
 
 function openAlbum(album: LibraryAlbum): void {
   selectedAlbum.value = album
   query.value = ''
+  resetScroll()
   void loadLibrary(true)
 }
 
 function closeAlbum(): void {
   selectedAlbum.value = null
   query.value = ''
+  resetScroll()
   void loadAlbums(true)
 }
 
@@ -435,7 +439,16 @@ function onLibrarySelect(event: Event): void {
   setLibrary((event.target as HTMLSelectElement).value)
 }
 
+function resetScroll(): void {
+  if (scrollArea.value) {
+    scrollArea.value.scrollTop = 0
+  }
+}
+
 function setTab(next: BrowseTab): void {
+  if (next !== tab.value) {
+    resetScroll()
+  }
   tab.value = next
   query.value = ''
   error.value = null
@@ -450,11 +463,25 @@ function setTab(next: BrowseTab): void {
 
 function onScroll(): void {
   const area = scrollArea.value
-  if (!area || tab.value !== 'radio' || query.value.trim() || stationsLoading.value || stationsDone.value) {
+  if (!area || area.scrollTop + area.clientHeight < area.scrollHeight - 200) {
     return
   }
-  if (area.scrollTop + area.clientHeight >= area.scrollHeight - 200) {
-    void loadTopStations(false)
+  if (tab.value === 'radio') {
+    if (!query.value.trim() && !stationsLoading.value && !stationsDone.value) {
+      void loadTopStations(false)
+    }
+    return
+  }
+  if (tab.value !== 'library') {
+    return
+  }
+  if (selectedAlbum.value) {
+    loadMoreLibrary()
+    return
+  }
+  loadMoreAlbums()
+  if (query.value.trim()) {
+    loadMoreLibrary()
   }
 }
 
