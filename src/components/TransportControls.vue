@@ -67,16 +67,17 @@ function onSeekCommit(): void {
 
 <template>
   <div class="transport">
-    <div v-if="showSeek" class="seek">
+    <div class="seek" :class="{ hidden: !showSeek }">
       <input
         class="range"
         type="range"
         min="0"
-        :max="duration"
+        :max="duration || 1"
         step="1"
         :value="progress"
         :style="{ '--fill': `${fill}%` }"
         aria-label="Playback position"
+        :disabled="!showSeek"
         @input="onSeekInput"
         @change="onSeekCommit"
       />
@@ -129,6 +130,12 @@ function onSeekCommit(): void {
 .seek {
   display: grid;
   gap: 6px;
+}
+
+/* The row keeps its space when a live stream or a track change leaves the
+   duration unknown, so the controls below never jump. */
+.seek.hidden {
+  visibility: hidden;
 }
 
 .seek-times {

@@ -46,11 +46,25 @@ describe('TransportControls', () => {
   it('shows a seek bar for a track with a duration', () => {
     const wrapper = mountControls()
     expect(wrapper.find('input[type="range"]').exists()).toBe(true)
+    expect(wrapper.get('.seek').classes()).not.toContain('hidden')
   })
 
-  it('hides the seek bar for a live stream', () => {
+  it('keeps the seek row in the layout for a live stream', () => {
     const wrapper = mountControls({ isLive: true, duration: 0 })
-    expect(wrapper.find('input[type="range"]').exists()).toBe(false)
+    const seek = wrapper.get('.seek')
+
+    expect(seek.classes()).toContain('hidden')
+    expect(wrapper.get('input[type="range"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('does not unmount the seek row when a track change reports no duration', async () => {
+    const wrapper = mountControls()
+    const before = wrapper.get('.seek').element
+
+    await wrapper.setProps({ duration: 0, isLive: true, position: 0 })
+
+    expect(wrapper.get('.seek').element).toBe(before)
+    expect(wrapper.get('.seek').classes()).toContain('hidden')
   })
 
   it('emits the seek target on release', async () => {
