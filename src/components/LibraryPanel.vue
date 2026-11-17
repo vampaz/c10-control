@@ -83,7 +83,6 @@ function meta(entry: LibraryEntry): string {
         >
           <AppIcon name="next" :size="13" />
         </button>
-        <AppIcon name="play" :size="14" class="row-icon" />
       </li>
     </ul>
 
@@ -258,11 +257,6 @@ function meta(entry: LibraryEntry): string {
 .row-queue:hover,
 .row-next:hover {
   color: var(--ink);
-}
-
-.row-icon {
-  margin-right: 10px;
-  color: var(--ink-faint);
 }
 
 .more {
