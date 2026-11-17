@@ -43,28 +43,30 @@ describe('TransportControls', () => {
     expect(wrapper.emitted('command')).toContainEqual(['previous'])
   })
 
-  it('shows a seek bar for a track with a duration', () => {
+  it('shows the track duration on the seek row', () => {
     const wrapper = mountControls()
-    expect(wrapper.find('input[type="range"]').exists()).toBe(true)
-    expect(wrapper.get('.seek').classes()).not.toContain('hidden')
+    expect(wrapper.get('.seek-times').text()).toContain('3:20')
   })
 
-  it('keeps the seek row in the layout for a live stream', () => {
+  it('keeps the seek row visible for a live stream and waits for a duration', () => {
     const wrapper = mountControls({ isLive: true, duration: 0 })
     const seek = wrapper.get('.seek')
 
-    expect(seek.classes()).toContain('hidden')
+    expect(seek.isVisible()).toBe(true)
     expect(wrapper.get('input[type="range"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('.seek-times').text()).toContain('--:--')
   })
 
-  it('does not unmount the seek row when a track change reports no duration', async () => {
-    const wrapper = mountControls()
+  it('resets the seek row to zero instead of removing it when a track changes', async () => {
+    const wrapper = mountControls({ position: 42, duration: 200 })
     const before = wrapper.get('.seek').element
 
-    await wrapper.setProps({ duration: 0, isLive: true, position: 0 })
+    // The poller still carries the old position until the new track reports in.
+    await wrapper.setProps({ duration: 0, isLive: true })
 
     expect(wrapper.get('.seek').element).toBe(before)
-    expect(wrapper.get('.seek').classes()).toContain('hidden')
+    expect(wrapper.get('.seek-times').text()).toContain('0:00')
+    expect(wrapper.get('.seek-times').text()).toContain('--:--')
   })
 
   it('emits the seek target on release', async () => {

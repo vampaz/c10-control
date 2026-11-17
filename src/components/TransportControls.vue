@@ -67,7 +67,7 @@ function onSeekCommit(): void {
 
 <template>
   <div class="transport">
-    <div class="seek" :class="{ hidden: !showSeek }">
+    <div class="seek">
       <input
         class="range"
         type="range"
@@ -82,8 +82,8 @@ function onSeekCommit(): void {
         @change="onSeekCommit"
       />
       <div class="seek-times">
-        <span>{{ formatTime(progress) }}</span>
-        <span>{{ formatTime(duration) }}</span>
+        <span>{{ showSeek ? formatTime(progress) : '0:00' }}</span>
+        <span>{{ showSeek ? formatTime(duration) : '--:--' }}</span>
       </div>
     </div>
 
@@ -130,12 +130,6 @@ function onSeekCommit(): void {
 .seek {
   display: grid;
   gap: 6px;
-}
-
-/* The row keeps its space when a live stream or a track change leaves the
-   duration unknown, so the controls below never jump. */
-.seek.hidden {
-  visibility: hidden;
 }
 
 .seek-times {
