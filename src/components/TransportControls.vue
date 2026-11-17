@@ -94,7 +94,7 @@ function onSeekCommit(): void {
         :disabled="busy"
         @click="emit('command', 'previous')"
       >
-        <AppIcon name="previous" :size="24" />
+        <AppIcon name="previous" :size="22" />
       </button>
 
       <button
@@ -104,7 +104,7 @@ function onSeekCommit(): void {
         :disabled="busy"
         @click="emit('command', 'toggle')"
       >
-        <AppIcon :name="playing ? 'pause' : 'play'" :size="28" />
+        <AppIcon :name="playing ? 'pause' : 'play'" :size="26" />
       </button>
 
       <button
@@ -114,7 +114,7 @@ function onSeekCommit(): void {
         :disabled="busy"
         @click="emit('command', 'next')"
       >
-        <AppIcon name="next" :size="24" />
+        <AppIcon name="next" :size="22" />
       </button>
     </div>
   </div>
@@ -123,18 +123,18 @@ function onSeekCommit(): void {
 <style scoped>
 .transport {
   display: grid;
-  gap: 22px;
+  gap: 14px;
 }
 
 .seek {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .seek-times {
   display: flex;
   justify-content: space-between;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
   color: var(--ink-faint);
 }
@@ -143,12 +143,12 @@ function onSeekCommit(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22px;
+  gap: 16px;
 }
 
 .play-button {
-  width: 72px;
-  height: 72px;
+  width: 60px;
+  height: 60px;
   display: grid;
   place-items: center;
   border-radius: 50%;

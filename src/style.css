@@ -102,36 +102,36 @@ body.drawer-open {
   width: min(1280px, 100%);
   margin-inline: auto;
   min-height: 100svh;
-  padding: clamp(20px, 3.6vw, 40px);
+  padding: clamp(14px, 2.6vw, 28px);
   /* Standalone mode on a phone draws under the notch and home bar. */
-  padding-top: max(clamp(20px, 3.6vw, 40px), env(safe-area-inset-top));
-  padding-bottom: max(clamp(20px, 3.6vw, 40px), env(safe-area-inset-bottom));
-  padding-left: max(clamp(20px, 3.6vw, 40px), env(safe-area-inset-left));
-  padding-right: max(clamp(20px, 3.6vw, 40px), env(safe-area-inset-right));
+  padding-top: max(clamp(14px, 2.6vw, 28px), env(safe-area-inset-top));
+  padding-bottom: max(clamp(14px, 2.6vw, 28px), env(safe-area-inset-bottom));
+  padding-left: max(clamp(14px, 2.6vw, 28px), env(safe-area-inset-left));
+  padding-right: max(clamp(14px, 2.6vw, 28px), env(safe-area-inset-right));
   display: flex;
   flex-direction: column;
-  gap: clamp(20px, 3vh, 32px);
+  gap: clamp(14px, 2vh, 22px);
 }
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 18px;
+  gap: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 
 .brand-mark {
   flex: none;
-  padding: 6px 9px;
+  padding: 5px 8px;
   border: 1px solid var(--line);
   border-radius: 7px;
   font-size: 0.7rem;
@@ -166,21 +166,21 @@ body.drawer-open {
 .topbar-side {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex: none;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .status {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 13px;
+  padding: 5px 11px;
   border: 1px solid var(--line);
   border-radius: 999px;
   font-size: 0.76rem;
@@ -214,17 +214,17 @@ body.drawer-open {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: clamp(14px, 2.4vh, 22px);
+  gap: clamp(10px, 1.6vh, 16px);
 }
 
 @media (min-width: 1200px) {
   .console {
     display: grid;
-    grid-template-columns: minmax(0, 760px) 320px;
+    grid-template-columns: minmax(0, 720px) 300px;
     justify-content: center;
     align-items: start;
-    gap: clamp(20px, 2.2vw, 30px);
-    padding-top: clamp(4px, 1.5vh, 16px);
+    gap: clamp(16px, 1.6vw, 22px);
+    padding-top: clamp(0px, 1vh, 10px);
   }
 }
 
@@ -262,7 +262,7 @@ body.drawer-open {
    covers the player, and let the remaining column shrink and scroll. */
 @media (min-width: 1000px) {
   :root {
-    --browse-width: min(480px, 46vw);
+    --browse-width: min(420px, 42vw);
   }
 
   .app.browse-open,
@@ -287,13 +287,13 @@ body.drawer-open {
 
 .panel {
   display: grid;
-  gap: clamp(16px, 2vw, 24px);
+  gap: clamp(12px, 1.5vw, 18px);
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   margin-inline: auto;
-  padding: clamp(20px, 2.4vw, 28px);
+  padding: clamp(16px, 1.8vw, 22px);
   border: 1px solid var(--line);
-  border-radius: 24px;
+  border-radius: 20px;
   background:
     linear-gradient(180deg, var(--panel-sheen), var(--panel-sheen-faint)),
     rgba(13, 13, 15, 0.78);
@@ -304,16 +304,16 @@ body.drawer-open {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(14px, 2.4vh, 22px);
+  gap: clamp(10px, 1.6vh, 16px);
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
 }
 
 .now-playing {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: clamp(14px, 2.2vw, 22px);
+  gap: clamp(12px, 1.6vw, 16px);
 }
 
 .footer {
@@ -321,7 +321,7 @@ body.drawer-open {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 10px 20px;
-  padding-top: 16px;
+  padding-top: 10px;
   border-top: 1px solid var(--line);
   font-size: 0.7rem;
   letter-spacing: 0.12em;
@@ -332,8 +332,8 @@ body.drawer-open {
 .icon-button {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: transparent;
@@ -367,7 +367,7 @@ body.drawer-open {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 32px;
+  height: 28px;
   padding: 0;
   background: transparent;
   cursor: pointer;
@@ -419,6 +419,11 @@ body.drawer-open {
 /* Fingers need a bigger grip than a mouse. */
 @media (pointer: coarse) {
   .range {
+    height: 44px;
+  }
+
+  .icon-button {
+    width: 44px;
     height: 44px;
   }
 
@@ -515,7 +520,7 @@ body.drawer-open {
 @media (max-width: 860px) {
   .console {
     justify-content: flex-start;
-    padding-top: 6px;
+    padding-top: 4px;
   }
 
   .topbar {
@@ -529,7 +534,7 @@ body.drawer-open {
 
 @media (max-width: 520px) {
   .topbar {
-    gap: 12px;
+    gap: 10px;
   }
 
   .topbar-side {

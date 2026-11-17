@@ -38,9 +38,9 @@ watch(() => props.playback.artworkUrl, () => {
 <style scoped>
 .artwork {
   position: relative;
-  width: clamp(84px, 15vw, 124px);
+  width: clamp(68px, 11vw, 96px);
   aspect-ratio: 1;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--surface-art);
   box-shadow:

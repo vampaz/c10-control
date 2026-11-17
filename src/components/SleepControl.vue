@@ -153,13 +153,13 @@ async function cancel(): Promise<void> {
 }
 
 .sleep-button {
-  padding: 7px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface-raised);
   color: var(--ink-dim);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   cursor: pointer;
   transition: border-color 140ms ease, color 140ms ease;
 }

@@ -62,20 +62,20 @@ function toggleShuffle(): void {
 .modes {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .mode {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 14px;
+  gap: 6px;
+  padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: none;
   color: var(--ink-faint);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   cursor: pointer;
   transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
 }

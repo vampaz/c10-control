@@ -94,7 +94,7 @@ function hideArt(event: Event): void {
 .presets {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
 }
 
 .slot {
@@ -106,7 +106,7 @@ function hideArt(event: Event): void {
   width: 100%;
   display: grid;
   gap: 2px;
-  padding: 8px 7px;
+  padding: 7px 6px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-raised);
@@ -149,9 +149,9 @@ function hideArt(event: Event): void {
 
 .slot-art {
   flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   object-fit: cover;
 }
 

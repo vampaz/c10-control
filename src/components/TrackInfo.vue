@@ -39,7 +39,7 @@ function display(value: string): string {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -79,7 +79,7 @@ function display(value: string): string {
 
 .title {
   margin: 0;
-  font-size: clamp(1.9rem, 3.4vw, 2.9rem);
+  font-size: clamp(1.6rem, 2.9vw, 2.4rem);
   font-weight: 500;
   line-height: 1.03;
   letter-spacing: -0.035em;
@@ -88,28 +88,28 @@ function display(value: string): string {
 }
 
 .artist {
-  margin: 12px 0 0;
-  font-size: 1rem;
+  margin: 8px 0 0;
+  font-size: 0.95rem;
   color: var(--ink-dim);
 }
 
 .album {
-  margin: 3px 0 0;
-  font-size: 0.9rem;
+  margin: 2px 0 0;
+  font-size: 0.85rem;
   color: var(--ink-faint);
 }
 
 @media (max-width: 520px) {
   .title {
-    font-size: clamp(1.45rem, 7vw, 1.9rem);
+    font-size: clamp(1.3rem, 6vw, 1.7rem);
   }
 
   .eyebrow {
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .artist {
-    margin-top: 8px;
+    margin-top: 6px;
   }
 }
 

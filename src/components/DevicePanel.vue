@@ -356,12 +356,12 @@ async function save(): Promise<void> {
   z-index: 10;
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: 14px;
   width: 100%;
   height: 100%;
-  padding: 22px;
-  padding-top: max(22px, env(safe-area-inset-top));
-  padding-bottom: max(22px, env(safe-area-inset-bottom));
+  padding: 16px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
   overflow-y: auto;
   overscroll-behavior: contain;
   border-left: 1px solid var(--line);
@@ -387,13 +387,13 @@ async function save(): Promise<void> {
 
 .dialog-head {
   position: sticky;
-  top: -22px;
+  top: -16px;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: -22px -22px 0;
-  padding: 22px 22px 12px;
+  margin: -16px -16px 0;
+  padding: 16px 16px 10px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
@@ -435,7 +435,7 @@ async function save(): Promise<void> {
 
 .field input {
   width: 100%;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--surface-input);

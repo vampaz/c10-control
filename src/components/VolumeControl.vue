@@ -74,7 +74,7 @@ function onCommit(): void {
 .volume {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .volume .range {

@@ -1026,7 +1026,7 @@ function meta(station: RadioStation): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 10px;
+  padding: 12px 16px 8px;
 }
 
 .drawer-head h2 {
@@ -1039,7 +1039,7 @@ function meta(station: RadioStation): string {
 .tabs {
   display: flex;
   gap: 4px;
-  margin: 0 20px 10px;
+  margin: 0 16px 8px;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1048,7 +1048,7 @@ function meta(station: RadioStation): string {
 
 .tabs button {
   flex: 1;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border: 0;
   border-radius: 999px;
   background: none;
@@ -1073,7 +1073,7 @@ function meta(station: RadioStation): string {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 20px 10px;
+  margin: 0 16px 8px;
 }
 
 .picker-label {
@@ -1100,7 +1100,7 @@ function meta(station: RadioStation): string {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin: 0 20px 8px;
+  margin: 0 16px 6px;
 }
 
 .album-back {
@@ -1148,7 +1148,7 @@ function meta(station: RadioStation): string {
 }
 
 .album-title {
-  margin: 0 20px 10px;
+  margin: 0 16px 8px;
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--ink);
@@ -1157,15 +1157,15 @@ function meta(station: RadioStation): string {
 .stations-more {
   display: flex;
   justify-content: center;
-  padding: 10px 0 4px;
+  padding: 8px 0 2px;
 }
 
 .search {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 4px 20px 10px;
-  padding: 10px 12px;
+  margin: 2px 16px 8px;
+  padding: 9px 11px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface-raised);
@@ -1187,7 +1187,7 @@ function meta(station: RadioStation): string {
 }
 
 .error {
-  margin: 0 20px 8px;
+  margin: 0 16px 6px;
   font-size: 0.84rem;
   color: var(--danger);
 }
@@ -1196,11 +1196,11 @@ function meta(station: RadioStation): string {
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 20px 16px;
+  padding: 0 16px 12px;
 }
 
 .group h3 {
-  margin: 12px 0 6px;
+  margin: 10px 0 5px;
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.14em;
@@ -1223,7 +1223,7 @@ function meta(station: RadioStation): string {
   border-radius: 10px;
   transition: background 140ms ease;
   content-visibility: auto;
-  contain-intrinsic-size: auto 60px;
+  contain-intrinsic-size: auto 52px;
 }
 
 .row:hover {
@@ -1235,7 +1235,7 @@ function meta(station: RadioStation): string {
   min-width: 0;
   display: grid;
   gap: 2px;
-  padding: 9px 8px;
+  padding: 7px 8px;
   border: 0;
   border-radius: 10px;
   background: none;
@@ -1272,8 +1272,8 @@ function meta(station: RadioStation): string {
 .star {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: 0;
   border-radius: 50%;
   background: none;
@@ -1303,8 +1303,8 @@ function meta(station: RadioStation): string {
 .stream-box {
   display: grid;
   gap: 8px;
-  margin: 0 0 16px;
-  padding: 14px 16px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface-sunken);

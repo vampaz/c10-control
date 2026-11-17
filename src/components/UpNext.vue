@@ -60,10 +60,10 @@ const rows = computed(() => {
 .up-next {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
+  gap: 10px;
+  padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 24px;
+  border-radius: 20px;
   background:
     linear-gradient(180deg, var(--panel-sheen), var(--panel-sheen-faint)),
     rgba(13, 13, 15, 0.6);
@@ -104,7 +104,7 @@ const rows = computed(() => {
   gap: 6px;
   align-items: center;
   width: 100%;
-  padding: 9px 8px;
+  padding: 7px 8px;
   border: 0;
   border-radius: 10px;
   background: none;
