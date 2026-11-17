@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
-import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import TransportControls from '@/components/TransportControls.vue'
+
+// The component runs a position ticker; unmount each wrapper to stop it.
+enableAutoUnmount(afterEach)
 
 function mountControls(props: Record<string, unknown> = {}) {
   return mount(TransportControls, {
@@ -67,6 +70,44 @@ describe('TransportControls', () => {
     expect(wrapper.get('.seek').element).toBe(before)
     expect(wrapper.get('.seek-times').text()).toContain('0:00')
     expect(wrapper.get('.seek-times').text()).toContain('--:--')
+  })
+
+  it('advances the progress between speaker polls', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mountControls({ position: 10, duration: 200 })
+
+      await vi.advanceTimersByTimeAsync(1000)
+      await wrapper.vm.$nextTick()
+
+      const value = Number((wrapper.get('input[type="range"]').element as HTMLInputElement).value)
+      expect(value).toBeGreaterThanOrEqual(10.5)
+      expect(value).toBeLessThanOrEqual(12)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('holds the progress while paused', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mountControls({ position: 10, duration: 200, status: 'paused' })
+
+      await vi.advanceTimersByTimeAsync(1000)
+      await wrapper.vm.$nextTick()
+
+      const value = Number((wrapper.get('input[type="range"]').element as HTMLInputElement).value)
+      expect(value).toBe(10)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the thumb hidden while waiting for the next track', () => {
+    const wrapper = mountControls({ isLive: true, duration: 0 })
+
+    expect(wrapper.get('.seek').classes()).toContain('waiting')
+    expect((wrapper.get('input[type="range"]').element as HTMLInputElement).value).toBe('0')
   })
 
   it('emits the seek target on release', async () => {

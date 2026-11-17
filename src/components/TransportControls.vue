@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { CommandType, PlaybackStatus } from '@shared/types'
 import AppIcon from '@/components/AppIcon.vue'
 import { formatTime } from '@/format'
@@ -14,10 +14,49 @@ const props = defineProps<{
 
 const emit = defineEmits<{ command: [type: CommandType, value?: number] }>()
 
+/** How often the local position advances between the speaker's polls. */
+const TICK_MS = 200
+
 const dragging = ref(false)
 const draft = ref(0)
 const pendingSeek = ref<number | null>(null)
 const pendingUntil = ref(0)
+const now = ref(Date.now())
+/** Last position the speaker reported, and when it did. */
+const base = ref({ position: 0, at: Date.now() })
+let ticker: ReturnType<typeof setInterval> | null = null
+
+watch(
+  () => [props.position, props.status, props.duration] as const,
+  ([position, status, duration]) => {
+    base.value = { position, at: Date.now() }
+    if (status === 'playing' && duration > 0) {
+      startTicker()
+    } else {
+      stopTicker()
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(stopTicker)
+
+function startTicker(): void {
+  if (ticker !== null) {
+    return
+  }
+  now.value = Date.now()
+  ticker = setInterval(() => {
+    now.value = Date.now()
+  }, TICK_MS)
+}
+
+function stopTicker(): void {
+  if (ticker !== null) {
+    clearInterval(ticker)
+    ticker = null
+  }
+}
 
 const playing = computed(() => props.status === 'playing')
 const showSeek = computed(() => !props.isLive && props.duration > 0)
@@ -28,7 +67,12 @@ const progress = computed(() => {
   if (pendingSeek.value !== null && Date.now() < pendingUntil.value) {
     return pendingSeek.value
   }
-  return props.position
+  if (!playing.value || props.duration <= 0) {
+    return props.position
+  }
+  // Advance locally so the thumb glides instead of stepping on every poll.
+  const elapsed = Math.max(0, (now.value - base.value.at) / 1000)
+  return Math.min(props.duration, base.value.position + elapsed)
 })
 const fill = computed(() => {
   if (!showSeek.value) {
@@ -67,14 +111,14 @@ function onSeekCommit(): void {
 
 <template>
   <div class="transport">
-    <div class="seek">
+    <div class="seek" :class="{ waiting: !showSeek }">
       <input
         class="range"
         type="range"
         min="0"
         :max="duration || 1"
-        step="1"
-        :value="progress"
+        step="0.1"
+        :value="showSeek ? progress : 0"
         :style="{ '--fill': `${fill}%` }"
         aria-label="Playback position"
         :disabled="!showSeek"
@@ -130,6 +174,16 @@ function onSeekCommit(): void {
 .seek {
   display: grid;
   gap: 6px;
+}
+
+/* While the next track has no duration yet, the track stays but the thumb
+   waits with it, so it cannot jump to the end and back. */
+.seek.waiting .range::-webkit-slider-thumb {
+  opacity: 0;
+}
+
+.seek.waiting .range::-moz-range-thumb {
+  opacity: 0;
 }
 
 .seek-times {
