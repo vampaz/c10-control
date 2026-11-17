@@ -12,6 +12,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: ['cloud.local'],
   },
   build: {
     outDir: 'dist',

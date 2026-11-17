@@ -15,12 +15,15 @@ const MISSES_BEFORE_OFFLINE = 2
 type Listener = (state: SpeakerState) => void
 
 /**
- * Polls the speaker while at least one client is listening and fans the result
- * out to every subscriber.
+ * Polls the speaker while at least one client is listening, or while a feature
+ * such as the app-side queue asks for it, and fans the result out to every
+ * subscriber.
  */
 export class SpeakerPoller {
   /** Called after every emitted state, for app-side features such as the queue. */
   onState: ((state: SpeakerState) => void) | null = null
+  /** Asks whether polling must continue with no client listening. */
+  keepAlive: (() => boolean) | null = null
   /** Resolves cover art for local library files, which carry no DIDL artwork. */
   artworkFor: ((url: string) => Promise<string | null>) | null = null
   /** Reports the position of finite tracks so they can resume later. */
@@ -58,8 +61,20 @@ export class SpeakerPoller {
     return () => {
       this.listeners.delete(listener)
       if (this.listeners.size === 0) {
-        this.stop()
+        this.sync()
       }
+    }
+  }
+
+  /**
+   * Runs the loop while a client listens or `keepAlive` asks for it. The queue
+   * uses it so a track still advances after the phone that started it sleeps.
+   */
+  sync(): void {
+    if (this.listeners.size > 0 || (this.keepAlive?.() ?? false)) {
+      this.ensureRunning()
+    } else {
+      this.stop()
     }
   }
 
@@ -160,6 +175,8 @@ export class SpeakerPoller {
     }
 
     this.emit()
+    // `onState` moves or clears the queue's active track, so re-check here.
+    this.sync()
   }
 
   /**

@@ -43,6 +43,8 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
     (target) => library.resolveTarget(target),
   )
   poller.onState = (state) => void queue.onState(state)
+  // A queued track must keep advancing after the client that started it sleeps.
+  poller.keepAlive = () => queue.snapshot().activeIndex !== null
   const sleep = new SleepTimer({
     getVolume: () => poller.current.volume.level,
     setVolume: (level) => poller.run({ type: 'volume', value: level }),

@@ -1,9 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SpeakerPoller } from '../server/state.ts'
+import { QueueController } from '../server/queue.ts'
 import type { SpeakerDevice } from '../server/device.ts'
 import type { PlayerStatus } from '../server/status.ts'
-import type { PlaybackStatus } from '../shared/types.ts'
+import type { PlaybackStatus, PlayTarget } from '../shared/types.ts'
 import type { MediaInfo } from '../server/mediainfo.ts'
+
+const TRACK: PlayTarget = {
+  url: 'http://192.168.1.135:8787/api/library/file?library=main&path=a.mp3',
+  title: 'Track 1',
+  isLive: false,
+}
 
 const INFO = {
   host: '192.168.1.100',
@@ -56,6 +63,10 @@ function fakeDevice(options: FakeDeviceOptions = {}) {
 
   return { device: calls as unknown as SpeakerDevice, calls }
 }
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('SpeakerPoller.refresh', () => {
   it('maps the speaker status into application state', async () => {
@@ -306,5 +317,84 @@ describe('SpeakerPoller.subscribe', () => {
     unsubscribe()
 
     expect(seen).toHaveLength(0)
+  })
+
+  it('keeps polling after the last client leaves while the queue has an active track', async () => {
+    vi.useFakeTimers()
+    const { device, calls } = fakeDevice()
+    const poller = new SpeakerPoller(device)
+    // Mirrors the runtime wiring: an active queue keeps the poller alive.
+    const queue = new QueueController(async () => undefined)
+    poller.keepAlive = () => queue.snapshot().activeIndex !== null
+    await queue.replace([TRACK])
+
+    const unsubscribe = poller.subscribe(() => undefined)
+    // Let the first poll finish, so no poll is in flight when the client leaves.
+    await vi.advanceTimersByTimeAsync(0)
+    unsubscribe()
+    const before = calls.getPlayerStatus.mock.calls.length
+    await vi.advanceTimersByTimeAsync(4_500)
+
+    expect(calls.getPlayerStatus.mock.calls.length).toBeGreaterThan(before)
+
+    queue.clear()
+    await vi.advanceTimersByTimeAsync(1_500)
+    const settled = calls.getPlayerStatus.mock.calls.length
+    await vi.advanceTimersByTimeAsync(4_500)
+
+    expect(calls.getPlayerStatus.mock.calls.length).toBe(settled)
+  })
+
+  it('stops polling when the last client leaves and nothing asks for it', async () => {
+    vi.useFakeTimers()
+    const { device, calls } = fakeDevice()
+    const poller = new SpeakerPoller(device)
+
+    const unsubscribe = poller.subscribe(() => undefined)
+    unsubscribe()
+    await vi.advanceTimersByTimeAsync(1_500)
+    const settled = calls.getPlayerStatus.mock.calls.length
+    await vi.advanceTimersByTimeAsync(4_500)
+
+    expect(calls.getPlayerStatus.mock.calls.length).toBe(settled)
+  })
+
+  it('advances the queue after the client leaves when the track ends', async () => {
+    vi.useFakeTimers()
+    let status: PlayerStatus = playerStatus({
+      mode: 2, title: 'Track 1', status: 'playing', duration: 200, position: 10, isLive: false,
+    })
+    const { device, calls } = fakeDevice({
+      status: async () => status,
+      mediaInfo: async () => ({ url: TRACK.url, title: 'Track 1', subtitle: '', artworkUrl: null, isLive: false }),
+    })
+    const poller = new SpeakerPoller(device)
+    const played: PlayTarget[] = []
+    const queue = new QueueController(async (target) => {
+      played.push(target)
+    })
+    // Both hooks are wired by the runtime; this client is about to disappear.
+    poller.onState = (state) => void queue.onState(state)
+    poller.keepAlive = () => queue.snapshot().activeIndex !== null
+    const second: PlayTarget = { ...TRACK, title: 'Track 2', url: `${TRACK.url}&n=2` }
+    await queue.replace([TRACK, second])
+
+    const unsubscribe = poller.subscribe(() => undefined)
+    await vi.advanceTimersByTimeAsync(0)
+    unsubscribe()
+    expect(queue.snapshot().activeIndex).toBe(0)
+
+    // The track ends with no client listening.
+    status = playerStatus({ mode: 2, title: 'Track 1', status: 'stopped', duration: 200, position: 200, isLive: false })
+    calls.getTransportState.mockResolvedValue('stopped')
+    await vi.advanceTimersByTimeAsync(1_500)
+
+    expect(played).toHaveLength(2)
+    expect(queue.snapshot().activeIndex).toBe(1)
+
+    const after = calls.getPlayerStatus.mock.calls.length
+    await vi.advanceTimersByTimeAsync(1_500)
+
+    expect(calls.getPlayerStatus.mock.calls.length).toBeGreaterThan(after)
   })
 })

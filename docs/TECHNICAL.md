@@ -65,7 +65,7 @@ The UI could not do this alone: `httpapi.asp` sends no CORS headers, SSDP needs 
 | --- | --- |
 | `server/runtime.ts` | Builds the API, the poller and the speaker client; shared by both entry points |
 | `server/app.ts` | Routes, JSON bodies, Server-Sent Events |
-| `server/state.ts` | `SpeakerPoller`: polls while clients are connected, collapses overlapping polls, marks the speaker offline after two misses, fans state out to subscribers |
+| `server/state.ts` | `SpeakerPoller`: polls while a client is connected or the queue has an active track, collapses overlapping polls, marks the speaker offline after two misses, fans state out to subscribers |
 | `server/device.ts` | `SpeakerDevice`: speaker actions, device details, rename, PlayQueue and all HTTP/SOAP details |
 | `server/soap.ts` | SOAP envelope builder and response/fault parser |
 | `server/status.ts` | `getPlayerStatus` payload parsing, hex text decoding, source and input labels |
@@ -112,7 +112,7 @@ sequenceDiagram
     participant S as C10
 
     B->>N: GET /api/events (SSE, once)
-    loop every 1.5 s while a client is connected
+    loop every 1.5 s while a client listens or the queue plays
         N->>S: GET httpapi.asp?command=getPlayerStatus
         S-->>N: JSON: status, title, volume, mute, mode
         N-->>B: data: { connected, playback, volume, source, input }
@@ -227,7 +227,7 @@ The library path is saved in `config.json`, but the folder contents are not. In 
 
 ## Limits
 
-- **Push is not available.** The speaker exposes no event stream this app can use, so the server polls every 1.5 s while a client is connected and hands the result to the browser over Server-Sent Events.
+- **Push is not available.** The speaker exposes no event stream this app can use, so the server polls every 1.5 s and hands the result to the browser over Server-Sent Events. The loop runs while a client is connected, and it keeps running while the app queue has an active track. That way a locked phone or a closed tab does not stop auto-advance.
 - **No authentication.** The speaker API is unauthenticated on the LAN, and so is this app. Do not expose either to the internet.
 - **Source labels are partly inferred.** Only mode 10 (`Wi-Fi`, internet radio) and mode 2 (a pushed stream) were observed on the test unit; the other mode codes follow the Linkplay convention and are unverified here.
 - **Multiroom grouping is not implemented.** `multiroom:getSlaveList` answers with a count, but the join and leave commands are undocumented and could not be verified with a single speaker. The app does not ship untested group actions.
