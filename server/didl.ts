@@ -28,6 +28,7 @@ export function guessMime(url: string): string {
 export function buildDidl(target: PlayTarget): string {
   const title = escapeXml(target.title?.trim() || target.url)
   const artist = target.artist ? `<dc:creator>${escapeXml(target.artist)}</dc:creator>` : ''
+  const album = target.album ? `<upnp:album>${escapeXml(target.album)}</upnp:album>` : ''
   const artwork = target.artworkUrl
     ? `<upnp:albumArtURI>${escapeXml(target.artworkUrl)}</upnp:albumArtURI>`
     : ''
@@ -43,6 +44,7 @@ export function buildDidl(target: PlayTarget): string {
     '<item id="0" parentID="-1" restricted="1">',
     `<dc:title>${title}</dc:title>`,
     artist,
+    album,
     `<upnp:class>${mediaClass}</upnp:class>`,
     artwork,
     `<res protocolInfo="http-get:*:${guessMime(target.url)}:*">${escapeXml(target.url)}</res>`,

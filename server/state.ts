@@ -14,6 +14,12 @@ const MISSES_BEFORE_OFFLINE = 2
 
 type Listener = (state: SpeakerState) => void
 
+/** The firmware reports the literal "unknown" for track fields it does not know. */
+function reported(value: string): string {
+  const trimmed = value.trim()
+  return trimmed && trimmed.toLowerCase() !== 'unknown' ? trimmed : ''
+}
+
 /**
  * Polls the speaker while at least one client is listening, or while a feature
  * such as the app-side queue asks for it, and fans the result out to every
@@ -30,6 +36,8 @@ export class SpeakerPoller {
   onPosition: ((url: string, position: number, duration: number, ended: boolean) => void) | null = null
   /** Returns the saved position for a track, or null to start at zero. */
   resumeFor: ((url: string) => number | null) | null = null
+  /** Supplies artist and album the speaker does not report for local files. */
+  metadataFor: ((url: string) => Promise<PlayTarget | null>) | null = null
   private state: SpeakerState = emptySpeakerState()
   private readonly listeners = new Set<Listener>()
   private timer: ReturnType<typeof setInterval> | null = null
@@ -129,14 +137,19 @@ export class SpeakerPoller {
       const reconnected = this.state.connected === false && this.state.updatedAt > 0
       const artworkUrl = this.media.artworkUrl
         ?? (this.artworkFor ? await this.artworkFor(this.media.url) : null)
+      // The firmware reports the literal "unknown" and empty strings for track
+      // fields it does not know; only then fall back to the queue's metadata.
+      const fallback = !reported(status.artist) && !reported(status.album) && this.media.url && this.metadataFor
+        ? await this.metadataFor(this.media.url).catch(() => null)
+        : null
       this.state = {
         connected: true,
         device: this.info,
         playback: {
           status: playbackStatus,
           title: status.title,
-          artist: status.artist,
-          album: status.album,
+          artist: reported(status.artist) || fallback?.artist || '',
+          album: reported(status.album) || fallback?.album || '',
           subtitle: this.media.subtitle,
           position: status.position,
           duration: status.duration,

@@ -589,7 +589,7 @@ export class LibraryService {
       return null
     }
 
-    return { targets: this.buildTargets(libraryId, paths), index }
+    return { targets: await this.buildTargets(libraryId, paths), index }
   }
 
   /**
@@ -635,17 +635,23 @@ export class LibraryService {
     }
     const unique = [...new Set(paths)]
       .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
-    return { targets: this.buildTargets(libraryId, unique), index: 0 }
+    return { targets: await this.buildTargets(libraryId, unique), index: 0 }
   }
 
-  private buildTargets(libraryId: string, paths: string[]): PlayTarget[] {
+  private async buildTargets(libraryId: string, paths: string[]): Promise<PlayTarget[]> {
     const config = this.getConfig()
     const mediaBaseUrl = detectMediaBaseUrl(config.host, this.port, config.mediaBaseUrl)
-    return paths.map((path) => ({
-      url: `${mediaBaseUrl}/api/library/file?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}`,
-      title: basename(path, extname(path)),
-      isLive: false,
-      artworkUrl: `/api/library/art?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}&w=96&fallback=1`,
+    return Promise.all(paths.map(async (path) => {
+      const file = this.resolveFile(libraryId, path)
+      const tags = file ? await this.tagsFor(file).catch(() => null) : null
+      return {
+        url: `${mediaBaseUrl}/api/library/file?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}`,
+        title: tags?.title || basename(path, extname(path)),
+        artist: tags?.artist,
+        album: tags?.album,
+        isLive: false,
+        artworkUrl: `/api/library/art?library=${encodeURIComponent(libraryId)}&path=${encodeURIComponent(path)}&w=96&fallback=1`,
+      }
     }))
   }
 

@@ -18,6 +18,7 @@ export function validateTarget(input: PlayTarget): PlayTarget {
     url,
     title: String(input.title ?? '').trim().slice(0, 200) || undefined,
     artist: String(input.artist ?? '').trim().slice(0, 200) || undefined,
+    album: String(input.album ?? '').trim().slice(0, 200) || undefined,
     artworkUrl: input.artworkUrl ? String(input.artworkUrl).trim() : null,
     isLive: input.isLive !== false,
   }

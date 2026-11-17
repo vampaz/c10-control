@@ -43,6 +43,8 @@ export function createRuntime(port = Number(process.env.PORT ?? 8787)): Runtime 
     (target) => library.resolveTarget(target),
   )
   poller.onState = (state) => void queue.onState(state)
+  // Local files often come back without artist or album; the queue knows them.
+  poller.metadataFor = (url) => Promise.resolve(queue.metadataFor(url))
   // A queued track must keep advancing after the client that started it sleeps.
   poller.keepAlive = () => queue.snapshot().activeIndex !== null
   const sleep = new SleepTimer({

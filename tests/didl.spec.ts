@@ -41,4 +41,16 @@ describe('buildDidl', () => {
     expect(untitled).toContain('<dc:title>http://host/live</dc:title>')
     expect(untitled).not.toContain('<upnp:albumArtURI>')
   })
+
+  it('includes the artist and album when given', () => {
+    const track = buildDidl({ url: 'http://host/song.mp3', title: 'Song', artist: 'Artist & Band', album: 'Record', isLive: false })
+    expect(track).toContain('<dc:creator>Artist &amp; Band</dc:creator>')
+    expect(track).toContain('<upnp:album>Record</upnp:album>')
+  })
+
+  it('omits the artist and album when absent', () => {
+    const track = buildDidl({ url: 'http://host/song.mp3', title: 'Song', isLive: false })
+    expect(track).not.toContain('<dc:creator>')
+    expect(track).not.toContain('<upnp:album>')
+  })
 })

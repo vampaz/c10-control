@@ -357,6 +357,12 @@ export class QueueController {
     this.order = first === null ? rest : [first, ...rest]
   }
 
+  /** Metadata of the track the queue currently plays, when it plays `url`. */
+  metadataFor(url: string): PlayTarget | null {
+    const item = this.activeIndex === null ? null : this.items[this.activeIndex]
+    return item && item.url === url ? item : null
+  }
+
   /**
    * Advances once when a finite track ends. A track only counts as ended after
    * it was seen playing, so the idle state left over from the previous track

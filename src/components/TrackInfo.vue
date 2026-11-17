@@ -6,15 +6,8 @@ const props = defineProps<{ playback: PlaybackState; playing: boolean; online: b
 
 const hasTrack = computed(() => props.playback.title.length > 0)
 
-const stateLabel = computed(() => {
-  if (!props.online) {
-    return 'Offline'
-  }
-  if (props.playing) {
-    return props.playback.isLive ? 'Live' : 'Playing'
-  }
-  return props.playback.status === 'paused' ? 'Paused' : 'Stopped'
-})
+/** Live streams show a badge; playback state is clear from the transport. */
+const live = computed(() => props.playing && props.online && props.playback.isLive)
 
 function display(value: string): string {
   return value && value.toLowerCase() !== 'unknown' ? value : ''
@@ -23,9 +16,9 @@ function display(value: string): string {
 
 <template>
   <div class="track-info">
-    <p class="eyebrow">
-      <span v-if="playback.isLive && playing && online" class="live">Live</span>
-      <span v-else :class="{ offline: !online }">{{ stateLabel }}</span>
+    <p v-if="live || !online" class="eyebrow">
+      <span v-if="live" class="live">Live</span>
+      <span v-else class="offline">Offline</span>
     </p>
 
     <h1 class="title" aria-live="polite">{{ hasTrack ? playback.title : 'Nothing playing' }}</h1>

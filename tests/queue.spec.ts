@@ -49,6 +49,18 @@ describe('QueueController', () => {
     expect(() => queue.add({ url: 'file:///a.mp3' })).toThrow('http or https')
   })
 
+  it('returns the metadata of the track it is playing', async () => {
+    const { queue } = player()
+    queue.add({ ...FIRST, artist: 'Artist', album: 'Album' })
+
+    expect(queue.metadataFor(FIRST.url)).toBeNull()
+
+    await queue.play(0)
+
+    expect(queue.metadataFor(FIRST.url)).toMatchObject({ title: 'First', artist: 'Artist', album: 'Album' })
+    expect(queue.metadataFor('http://example.com/other')).toBeNull()
+  })
+
   it('plays the chosen index', async () => {
     const { queue, played } = player()
     queue.add(FIRST)

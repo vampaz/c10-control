@@ -176,6 +176,41 @@ describe('SpeakerPoller.refresh', () => {
     expect(poller.current.playback.artworkUrl).toBe('/api/library/art?library=main&path=a.flac')
   })
 
+  it('fills artist and album from the queue when the speaker reports none', async () => {
+    const mediaInfo = async (): Promise<MediaInfo> => ({
+      url: TRACK.url,
+      title: 'Track 1',
+      subtitle: '',
+      artworkUrl: null,
+      isLive: false,
+    })
+    // `playerStatus` defaults artist and album to the firmware's "unknown".
+    const { device } = fakeDevice({
+      mediaInfo,
+      status: async () => playerStatus({ mode: 2, title: 'Track 1', duration: 200, isLive: false }),
+    })
+    const poller = new SpeakerPoller(device)
+    poller.metadataFor = async (url) => (url === TRACK.url ? { ...TRACK, artist: 'Artist', album: 'Album' } : null)
+
+    await poller.refresh()
+
+    expect(poller.current.playback.artist).toBe('Artist')
+    expect(poller.current.playback.album).toBe('Album')
+  })
+
+  it('keeps the artist and album the speaker reports', async () => {
+    const { device } = fakeDevice({
+      status: async () => playerStatus({ artist: 'Real Artist', album: 'Real Album' }),
+    })
+    const poller = new SpeakerPoller(device)
+    poller.metadataFor = async () => ({ url: 'http://unused', artist: 'Queue Artist', album: 'Queue Album' })
+
+    await poller.refresh()
+
+    expect(poller.current.playback.artist).toBe('Real Artist')
+    expect(poller.current.playback.album).toBe('Real Album')
+  })
+
   it('uses the UPnP transport state for a paused local file', async () => {
     const { device, calls } = fakeDevice({
       status: async () => playerStatus({ status: 'playing', duration: 12, isLive: false }),

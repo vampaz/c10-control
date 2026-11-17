@@ -81,6 +81,7 @@ export interface PlayTarget {
   url: string
   title?: string
   artist?: string
+  album?: string
   artworkUrl?: string | null
   /** False for a finite track, true (default) for a live stream. */
   isLive?: boolean
